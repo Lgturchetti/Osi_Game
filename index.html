@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSI Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800;900&family=Nunito:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow-x:hidden;}
+body{font-family:'Manrope',sans-serif;background:var(--v2-bg);color:var(--v2-text);min-height:100vh;font-size:17px;}
+.screen{display:none;min-height:100vh;}
+.screen.active{display:flex;flex-direction:column;}
+:root{
+  --v2-bg:#0b0d12;--v2-surface:#14171d;--v2-surface2:#1b1f27;
+  --v2-text:#eef0f2;--v2-text-dim:rgba(238,240,242,.5);--v2-text-dimmer:rgba(238,240,242,.28);
+  --v2-hairline:rgba(255,255,255,.08);
+  --v2-accent:#e8a33d;--v2-accent-deep:#6b4d1e;
+  --v2-success:#4f9d69;--v2-danger:#c4554d;
+}
+.gbtn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 2.2rem;border:none;font-family:'Manrope',sans-serif;font-weight:800;font-size:1rem;cursor:pointer;position:relative;letter-spacing:.02em;transition:transform .1s,filter .15s;outline:none;-webkit-user-select:none;user-select:none;border-radius:0;color:var(--v2-text);}
+.gbtn:active{transform:translate(1px,1px);filter:brightness(.92);}
+.gbtn:disabled{opacity:.35;cursor:not-allowed;transform:none!important;}
+.gbtn-sm{padding:.5rem 1.3rem;font-size:.8rem;}
+.gbtn-lg{padding:1.05rem 3.2rem;font-size:1.1rem;}
+.gbtn-green{background:var(--v2-success);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),3px 3px 0 #2c6b41;}
+.gbtn-green:hover{filter:brightness(1.08);}
+.gbtn-blue,.gbtn-purple{background:linear-gradient(180deg,#f0b358,var(--v2-accent));color:#241804;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),3px 3px 0 var(--v2-accent-deep);}
+.gbtn-blue:hover,.gbtn-purple:hover{filter:brightness(1.06);}
+.gbtn-red{background:var(--v2-danger);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),3px 3px 0 #6e2922;}
+.gbtn-yellow{background:var(--v2-accent);color:#241804;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),3px 3px 0 var(--v2-accent-deep);}
+.gbtn-gray{background:var(--v2-surface2);border:1px solid var(--v2-hairline);box-shadow:3px 3px 0 rgba(0,0,0,.4);}
+.gbtn-gray:hover{filter:brightness(1.2);}
+#screen-game{background:var(--v2-bg);flex-direction:column;}
+.game-topbar{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.75rem;background:rgba(11,13,18,0.9);border-bottom:1px solid var(--v2-hairline);backdrop-filter:blur(12px);position:sticky;top:0;z-index:50;gap:1rem;}
+.topbar-logo{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.2rem;color:var(--v2-text);letter-spacing:.03em;}
+.topbar-layer{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;color:var(--v2-text-dimmer);letter-spacing:.08em;text-transform:uppercase;}
+.topbar-layer span{color:var(--v2-text);}
+.lives-row{display:flex;gap:.25rem;font-size:1.15rem;}
+.prog-wrap{height:4px;background:rgba(255,255,255,0.05);}
+.prog-fill{height:100%;background:var(--v2-accent);transition:width .6s cubic-bezier(.4,0,.2,1);box-shadow:0 0 8px rgba(232,163,61,.5);}
+.game-body{display:grid;grid-template-columns:230px 1fr;flex:1;overflow:hidden;}
+.gsidebar{background:rgba(11,13,18,0.85);border-right:1px solid var(--v2-hairline);display:flex;flex-direction:column;padding:1rem .7rem;gap:.9rem;overflow-y:auto;}
+.osi-stack{display:flex;flex-direction:column;gap:.3rem;}
+.sport{display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border-radius:4px;border:1px solid transparent;transition:all .25s;}
+.sport.pending{opacity:.45;}
+.sport.active{background:rgba(232,163,61,.08);border-color:rgba(232,163,61,.28);opacity:1;}
+.sport.done{opacity:.85;}
+.sport-led{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.16);flex-shrink:0;}
+.sport-led.active{background:var(--v2-accent);box-shadow:0 0 7px rgba(232,163,61,.7);animation:sledPulse 1.4s ease-in-out infinite;}
+.sport-led.ok{background:var(--v2-success);box-shadow:0 0 6px rgba(79,157,105,.6);}
+.sport-led.err{background:var(--v2-danger);box-shadow:0 0 6px rgba(196,85,77,.6);}
+@keyframes sledPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+.sport-num{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--v2-text-dimmer);width:18px;flex-shrink:0;}
+.sport-name{font-size:.76rem;font-weight:600;color:var(--v2-text);}
+.sport-check{margin-left:auto;font-size:.78rem;}
+.tux-box{display:flex;flex-direction:column;align-items:center;gap:.6rem;margin-top:auto;}
+.tux-bubble{background:var(--v2-surface);border:1px solid var(--v2-hairline);border-radius:4px;padding:.65rem .8rem;font-size:.75rem;font-weight:700;color:var(--v2-text-dim);text-align:center;line-height:1.5;position:relative;width:100%;}
+.tux-bubble::after{content:'';position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--v2-surface);}
+.gmain{overflow-y:auto;display:flex;flex-direction:column;}
+.phase-wrap{padding:1.75rem;flex:1;display:flex;flex-direction:column;gap:1.4rem;animation:slideIn .3s cubic-bezier(.4,0,.2,1);}
+@keyframes slideIn{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+.phase-header{display:flex;align-items:flex-start;gap:.85rem;}
+.lbadge{padding:.32rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--v2-accent);background:var(--v2-surface2);border:1px solid var(--v2-hairline);white-space:nowrap;}
+.phase-title{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:700;line-height:1.15;color:var(--v2-text);}
+.phase-sub{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--v2-text-dimmer);font-weight:600;margin-top:.25rem;letter-spacing:.06em;text-transform:uppercase;}
+.intro-card{background:var(--v2-surface);border:1px solid var(--v2-hairline);border-radius:6px;padding:1.4rem;font-size:.92rem;color:var(--v2-text-dim);line-height:1.8;position:relative;overflow:hidden;}
+.intro-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent);}
+.intro-card p{margin-bottom:.7rem;}.intro-card p:last-child{margin-bottom:0;}
+.analogy-box{display:flex;gap:1rem;background:rgba(232,163,61,.06);border:1px solid rgba(232,163,61,.2);border-left:3px solid var(--v2-accent);border-radius:6px;padding:1.1rem 1.2rem;}
+.analogy-icon{font-size:2rem;flex-shrink:0;line-height:1;}
+.analogy-body{font-size:.88rem;color:var(--v2-text-dim);line-height:1.65;}
+.analogy-body strong{color:var(--v2-text);}
+.challenge-wrap{background:var(--v2-surface);border:1px solid var(--v2-hairline);border-radius:6px;padding:1.4rem;display:flex;flex-direction:column;gap:1.1rem;flex:1;position:relative;overflow:hidden;}
+.challenge-wrap::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent);}
+.ch-instruction{background:rgba(255,255,255,0.03);border:1px solid var(--v2-hairline);border-left:3px solid var(--v2-accent);border-radius:4px;padding:.8rem 1rem;font-size:.87rem;color:var(--v2-text-dim);line-height:1.65;}
+.ch-instruction strong{color:var(--v2-text);}
+.feedback{display:none;align-items:center;gap:.85rem;padding:.9rem 1.2rem;border-radius:4px;font-weight:800;font-size:.9rem;letter-spacing:.02em;position:relative;overflow:hidden;}
+.feedback::before{content:'';position:absolute;inset:0;opacity:.06;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.5),rgba(255,255,255,.5) 1px,transparent 1px,transparent 8px);}
+.feedback.show{display:flex;animation:fbPop .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes fbPop{0%{transform:scale(.94);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.feedback.ok{background:rgba(79,157,105,0.12);border:1px solid rgba(79,157,105,0.4);color:var(--v2-success);}
+.feedback.fail{background:rgba(196,85,77,0.12);border:1px solid rgba(196,85,77,0.4);color:var(--v2-danger);animation:fbPop .25s cubic-bezier(.34,1.56,.64,1),shakeFail .38s ease .05s;}
+@keyframes shakeFail{0%,100%{transform:translateX(0);}20%{transform:translateX(-9px);}40%{transform:translateX(9px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}}
+.ch-actions{display:flex;justify-content:flex-end;gap:.75rem;margin-top:auto;padding-top:.5rem;}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;}
+.cbtn{padding:.9rem 1.1rem;background:rgba(255,255,255,0.03);border:1px solid var(--v2-hairline);border-radius:4px;font-size:.86rem;font-weight:700;color:var(--v2-text);cursor:pointer;text-align:left;line-height:1.45;transition:all .18s;}
+.cbtn:hover:not(:disabled){border-color:rgba(255,255,255,0.28);background:rgba(255,255,255,0.06);}
+.cbtn.sel{border-color:var(--v2-accent);background:rgba(232,163,61,.12);}
+.cbtn.correct{border-color:var(--v2-success);background:rgba(79,157,105,0.12);color:var(--v2-success);}
+.cbtn.wrong{border-color:var(--v2-danger);background:rgba(196,85,77,0.1);color:var(--v2-danger);}
+.cbtn:disabled{cursor:not-allowed;}
+.ip-fields{display:flex;flex-direction:column;gap:.6rem;}
+.iprow{display:flex;align-items:center;gap:.85rem;background:rgba(255,255,255,0.03);border:1px solid var(--v2-hairline);border-radius:4px;padding:.75rem 1.1rem;}
+.iprow label{font-size:.76rem;color:var(--v2-text-dim);font-weight:800;width:150px;flex-shrink:0;letter-spacing:.03em;text-transform:uppercase;}
+.iprow input,.iprow select{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:var(--v2-text);padding:.38rem .7rem;font-size:.87rem;font-family:'JetBrains Mono',monospace;flex:1;outline:none;transition:border-color .2s,box-shadow .2s;}
+.iprow input:focus,.iprow select:focus{border-color:var(--v2-accent);box-shadow:0 0 0 2px rgba(232,163,61,.2);}
+.iprow input.ok{border-color:var(--v2-success);}.iprow input.err{border-color:var(--v2-danger);}
+.iprow select option{background:var(--v2-surface);}
+.ip-hint{font-size:.7rem;color:var(--v2-text-dimmer);font-weight:700;}
+.sort-list{display:flex;flex-direction:column;gap:.5rem;}
+.sitem{display:flex;align-items:center;gap:.8rem;padding:.7rem 1.1rem;background:rgba(255,255,255,0.04);border:1px solid var(--v2-hairline);border-radius:4px;cursor:grab;user-select:none;font-size:.87rem;font-weight:700;transition:all .15s;color:var(--v2-text);}
+.sitem:active{cursor:grabbing;}
+.sitem.drag-over{border-color:var(--v2-accent);background:rgba(232,163,61,.1);}
+.shandle{color:var(--v2-text-dimmer);font-size:1rem;}
+.toggle-list{display:flex;flex-direction:column;gap:.5rem;}
+.titem{display:flex;align-items:center;justify-content:space-between;gap:.85rem;padding:.75rem 1.1rem;background:rgba(255,255,255,0.03);border:1px solid var(--v2-hairline);border-radius:4px;font-size:.87rem;}
+.titem-info{flex:1;}
+.titem-label{font-weight:800;margin-bottom:.15rem;color:var(--v2-text);letter-spacing:.02em;}
+.titem-note{font-size:.72rem;color:var(--v2-text-dimmer);}
+.tswitch{position:relative;width:48px;height:26px;flex-shrink:0;}
+.tswitch input{opacity:0;width:0;height:0;}
+.tslider{position:absolute;inset:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:3px;cursor:pointer;transition:all .2s;}
+.tslider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:2px;background:rgba(255,255,255,0.35);border-radius:2px;transition:all .2s;}
+.tswitch input:checked+.tslider{background:var(--v2-success);border-color:var(--v2-success);}
+.tswitch input:checked+.tslider::before{transform:translateX(22px);background:#fff;}
+.wire-game{display:grid;grid-template-columns:1fr 30px 1fr;gap:.4rem;align-items:center;}
+.wire-col{display:flex;flex-direction:column;gap:.5rem;}
+.wnode{padding:.65rem .9rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:4px;font-size:.8rem;font-weight:800;cursor:pointer;transition:all .18s;text-align:center;letter-spacing:.02em;color:var(--v2-text);}
+.wnode:hover{border-color:rgba(255,255,255,0.32);background:rgba(255,255,255,0.07);}
+.wnode.sel{border-color:var(--v2-accent);background:rgba(232,163,61,.14);color:var(--v2-accent);}
+.wnode.matched{border-color:var(--v2-success);background:rgba(79,157,105,0.1);color:var(--v2-success);cursor:default;}
+.wnode.bad{border-color:var(--v2-danger);animation:wShake .3s ease;}
+@keyframes wShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.wire-mid{display:flex;align-items:center;justify-content:center;color:var(--v2-text-dimmer);font-size:.9rem;}
+#screen-sim{background:var(--v2-bg);align-items:flex-start;justify-content:center;padding:2.25rem 2rem;}
+.sim-inner{width:100%;max-width:980px;margin:0 auto;}
+.sim-title{font-family:'Space Grotesk',sans-serif;font-size:2rem;font-weight:700;margin-bottom:.3rem;color:var(--v2-text);letter-spacing:.01em;}
+.sim-sub{font-family:'JetBrains Mono',monospace;color:var(--v2-text-dimmer);font-size:.84rem;margin-bottom:1.75rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;}
+.sim-grid{display:grid;grid-template-columns:1fr 290px;gap:1.75rem;}
+.sim-stack{display:flex;flex-direction:column;gap:.5rem;}
+.slayer{display:flex;align-items:center;gap:.85rem;padding:.9rem 1.2rem;border-radius:4px;border:1px solid var(--v2-hairline);background:rgba(255,255,255,0.02);position:relative;overflow:hidden;transition:all .35s;}
+.slayer::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--v2-hairline);}
+.slayer.processing{background:rgba(255,255,255,0.04);border-color:rgba(232,163,61,.3);animation:processPulse .7s ease-in-out infinite alternate;}
+.slayer.processing::before{background:var(--v2-accent);}
+@keyframes processPulse{0%{box-shadow:none;}100%{box-shadow:0 0 18px rgba(232,163,61,.15);}}
+.slayer.ok{background:rgba(79,157,105,0.07);border-color:rgba(79,157,105,0.3);}
+.slayer.ok::before{background:var(--v2-success);}
+.slayer.err{background:rgba(196,85,77,0.09);border-color:rgba(196,85,77,0.35);}
+.slayer.err::before{background:var(--v2-danger);}
+.sln{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--v2-text-dimmer);width:22px;}
+.slname{font-weight:800;font-size:.9rem;flex:1;letter-spacing:.02em;}
+.slstatus{font-size:.74rem;color:var(--v2-text-dimmer);font-weight:700;}
+.slicon{font-size:1.1rem;width:26px;text-align:center;}
+.sim-right{display:flex;flex-direction:column;gap:1rem;align-items:center;}
+.sim-log{background:rgba(0,0,0,0.5);border:1px solid var(--v2-hairline);border-radius:4px;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.73rem;line-height:2;color:var(--v2-text-dimmer);width:100%;min-height:180px;max-height:290px;overflow-y:auto;}
+.log-ok{color:var(--v2-success);}.log-err{color:var(--v2-danger);}.log-info{color:var(--v2-text-dim);}
+#screen-result{background:var(--v2-bg);align-items:center;justify-content:center;text-align:center;padding:2.5rem;position:relative;overflow:hidden;}
+.result-title{font-family:'Space Grotesk',sans-serif;font-size:2.4rem;font-weight:700;margin-bottom:.25rem;position:relative;z-index:1;color:var(--v2-text);}
+.result-pts{font-family:'Space Grotesk',sans-serif;font-size:5.2rem;font-weight:700;line-height:1;color:var(--v2-accent);margin:.75rem 0;position:relative;z-index:1;}
+.result-msg{color:var(--v2-text-dim);max-width:420px;margin:0 auto 1.75rem;line-height:1.65;font-weight:600;position:relative;z-index:1;font-size:.95rem;}
+.result-errors{background:rgba(255,255,255,0.03);border:1px solid var(--v2-hairline);border-radius:6px;padding:1.3rem;text-align:left;max-width:480px;width:100%;margin-bottom:1.75rem;position:relative;z-index:1;}
+.result-errors::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.16),transparent);}
+.result-errors h4{font-family:'JetBrains Mono',monospace;font-size:.73rem;color:var(--v2-text-dimmer);margin-bottom:.85rem;letter-spacing:.08em;text-transform:uppercase;}
+.err-item{display:flex;align-items:center;gap:.7rem;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:.87rem;font-weight:600;color:var(--v2-text-dim);}
+.err-item:last-child{border:none;}
+.err-dot{width:10px;height:10px;flex-shrink:0;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);background:var(--v2-danger);}
+.tux-wrap{display:flex;justify-content:center;align-items:flex-end;}
+.row{display:flex;align-items:center;gap:.75rem;}
+.ml-auto{margin-left:auto;}.mt-auto{margin-top:auto;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px;}
+
+/* ═══════════════════════════════════════
+   RJ45 CHALLENGE STYLES
+═══════════════════════════════════════ */
+
+.rj45-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  user-select: none;
+}
+
+/* connector area */
+.rj45-connector-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .6rem;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 6px;
+  padding: 1.2rem 1rem;
+  position: relative;
+}
+.rj45-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--v2-text-dimmer);
+}
+
+/* slot drop target */
+.rj45-slot { transition: filter .2s; }
+.rj45-slot.drag-over rect:first-child {
+  stroke: #e8a33d !important;
+  filter: brightness(1.3);
+}
+
+/* bottom row */
+.rj45-bottom {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  gap: 1rem;
+}
+
+/* wire tray */
+.wire-tray {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 6px;
+  padding: .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+.tray-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--v2-text-dimmer);
+}
+.tray-wires {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  min-height: 80px;
+  padding: .4rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 4px;
+  transition: border-color .2s, background .2s;
+}
+.tray-wires.drag-over {
+  border-color: rgba(232,163,61,.5);
+  background: rgba(232,163,61,.07);
+}
+.tray-wire {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .25rem;
+  cursor: grab;
+  padding: .3rem .35rem;
+  border-radius: 4px;
+  border: 1px solid var(--v2-hairline);
+  background: rgba(255,255,255,0.03);
+  transition: border-color .15s, transform .15s, background .15s;
+}
+.tray-wire:hover {
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.07);
+  transform: translateY(-2px);
+}
+.tray-wire.dragging { opacity: .3; }
+.tray-wire-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .56rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--v2-text-dim);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 60px;
+}
+
+/* toolbox */
+.toolbox {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--v2-hairline);
+  border-radius: 6px;
+  padding: .85rem .7rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+.toolbox-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .75rem;
+}
+.tool-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .3rem;
+  padding: .5rem .4rem;
+  border-radius: 4px;
+  border: 1px solid var(--v2-hairline);
+  background: rgba(255,255,255,0.03);
+  transition: border-color .2s, background .2s, transform .15s;
+}
+#crimper-tool:hover {
+  border-color: rgba(232,163,61,.5);
+  background: rgba(232,163,61,.08);
+  transform: translateY(-2px);
+}
+#crimper-tool:active { transform: translateY(1px) scale(.97); }
+.tool-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--v2-text-dimmer);
+}
+
+/* hint panel */
+.rj45-hint-panel {
+  background: rgba(232,163,61,.08);
+  border: 1px solid rgba(232,163,61,.3);
+  border-radius: 4px;
+  padding: .75rem 1rem;
+  font-size: .83rem;
+  color: var(--v2-accent);
+  font-weight: 700;
+  line-height: 1.6;
+  animation: fbPop .25s cubic-bezier(.34,1.56,.64,1);
+}
+.rj45-hint-panel .hint-slot { font-weight: 900; color: var(--v2-text); }
+.rj45-hint-panel .hint-wire {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .78rem;
+}
+.hint-swatch {
+  display: inline-block; width: 14px; height: 14px;
+  border-radius: 2px; border: 1px solid rgba(255,255,255,0.2);
+  vertical-align: middle; position: relative; overflow: hidden;
+}
+.hint-swatch-stripe {
+  position: absolute; left: 30%; top: 0; bottom: 0; width: 40%;
+  background: rgba(255,255,255,0.6);
+}
+
+/* standard selector */
+.std-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4rem;
+  padding: 1.5rem;
+}
+.std-selector-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--v2-text);
+  text-align: center;
+}
+.std-selector-sub {
+  font-size: .82rem;
+  color: var(--v2-text-dimmer);
+  text-align: center;
+  line-height: 1.6;
+  max-width: 480px;
+}
+.std-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  width: 100%;
+  max-width: 560px;
+}
+.std-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  padding: 1.2rem 1rem;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  align-items: center;
+  text-align: center;
+}
+.std-card:hover {
+  border-color: rgba(232,163,61,.5);
+  background: rgba(232,163,61,.06);
+  transform: translateY(-3px);
+}
+.std-card.selected {
+  border-color: var(--v2-accent);
+  background: rgba(232,163,61,.1);
+}
+.std-card-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--v2-text);
+}
+.std-card-use {
+  font-size: .72rem;
+  color: var(--v2-text-dimmer);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.std-wire-preview {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 44px;
+}
+.std-wire-bar {
+  width: 14px;
+  height: 100%;
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.std-wire-bar-stripe {
+  position: absolute;
+  left: 25%; top: 0; bottom: 0; width: 50%;
+  background: rgba(255,255,255,0.55);
+}
+
+/* crimp success animation */
+@keyframes crimpSuccess {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.04); filter: brightness(1.3); }
+  100% { transform: scale(1); }
+}
+.crimp-success { animation: crimpSuccess .5s ease forwards; }
+
+/* slot number label */
+.slot-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .65rem;
+  color: rgba(255,255,255,0.25);
+  text-anchor: middle;
+}
+
+/* ═══════════════════════════════════════
+   SWITCH CHALLENGE STYLES (CAMADA 2 — PORTARIA)
+═══════════════════════════════════════ */
+
+.switch-wrap { display:flex; flex-direction:column; gap:1.1rem; }
+
+.switch-top { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+.switch-round-badge {
+  font-family:'JetBrains Mono',monospace; font-size:.72rem; font-weight:600;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--v2-text-dim);
+  background:rgba(255,255,255,0.04); border:1px solid var(--v2-hairline);
+  border-radius:4px; padding:.5rem .9rem; white-space:nowrap;
+}
+.switch-round-badge strong { color:var(--v2-accent); }
+
+.switch-cam-panel {
+  background:rgba(0,0,0,0.3); border:1px solid var(--v2-hairline);
+  border-radius:6px; padding:.65rem .9rem; flex:1; min-width:220px; max-width:340px;
+}
+.switch-cam-title {
+  font-family:'JetBrains Mono',monospace; font-size:.62rem; font-weight:600;
+  letter-spacing:.07em; text-transform:uppercase; color:var(--v2-text-dimmer);
+  margin-bottom:.45rem;
+}
+.switch-cam-list { display:flex; flex-wrap:wrap; gap:.4rem; min-height:1.5rem; }
+.switch-cam-empty { font-size:.74rem; color:var(--v2-text-dimmer); font-style:italic; }
+.switch-cam-entry {
+  font-family:'JetBrains Mono',monospace; font-size:.7rem; font-weight:700;
+  color:var(--v2-success); background:rgba(79,157,105,0.1); border:1px solid rgba(79,157,105,0.35);
+  border-radius:3px; padding:.22rem .55rem;
+  animation: fbPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+
+.switch-stage {
+  display:flex; flex-direction:column; align-items:center; gap:1.3rem;
+  background:rgba(0,0,0,0.22); border:1px solid var(--v2-hairline);
+  border-radius:8px; padding:1.6rem 1.2rem;
+}
+
+.switch-package-area { display:flex; justify-content:center; }
+.switch-package {
+  display:flex; flex-direction:column; align-items:center; gap:.3rem;
+  background:rgba(232,163,61,.08); border:1px solid rgba(232,163,61,.3);
+  border-radius:6px; padding:.75rem 1.2rem; transition:transform .35s ease, opacity .35s ease;
+}
+.switch-package-icon { font-size:1.9rem; line-height:1; }
+.switch-package-label { font-size:.8rem; font-weight:800; color:var(--v2-text); }
+.switch-package-label strong { color:var(--v2-accent); font-family:'JetBrains Mono',monospace; letter-spacing:.03em; }
+@keyframes pkgShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+.switch-package.bad { animation: pkgShake .35s ease; }
+.switch-package.delivered { opacity:0; transform:translateY(36px) scale(.7); }
+
+/* broadcast button — the player's explicit "I don't know this address" action */
+.switch-broadcast-btn {
+  display:inline-flex; align-items:center; gap:.55rem;
+  font-family:'Manrope',sans-serif; font-weight:800; font-size:.9rem;
+  letter-spacing:.01em; color:#241804;
+  background:linear-gradient(180deg,#f0b358,var(--v2-accent));
+  border:none; border-radius:0; padding:.75rem 1.5rem;
+  cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.35),3px 3px 0 var(--v2-accent-deep);
+  transition:filter .15s, transform .1s;
+}
+.switch-broadcast-btn:hover { filter:brightness(1.06); }
+.switch-broadcast-btn:active { transform:translate(1px,1px); filter:brightness(.94); }
+.switch-broadcast-btn.wrong {
+  animation: wShake .3s ease;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),3px 3px 0 #6e2922;
+  background:var(--v2-danger); color:#fff;
+}
+@keyframes hintGlowPulse { 0%,100%{box-shadow:0 0 0 rgba(232,163,61,0);} 50%{box-shadow:0 0 22px rgba(232,163,61,.65);} }
+.switch-broadcast-btn.hint-glow { animation: hintGlowPulse 1.4s ease-in-out 2; }
+
+.switch-building { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+.switch-door {
+  display:flex; flex-direction:column; align-items:center; gap:.4rem;
+  width:108px; padding:.95rem .6rem;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12);
+  border-radius:8px; cursor:pointer; transition:all .18s; user-select:none;
+}
+.switch-door:hover { border-color:rgba(255,255,255,0.32); background:rgba(255,255,255,0.07); transform:translateY(-3px); }
+.switch-door-icon { font-size:2.1rem; line-height:1; }
+.switch-door-label { font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:700; color:var(--v2-text); letter-spacing:.02em; transition:opacity .2s,color .2s; }
+.switch-door-sub { font-size:.6rem; color:var(--v2-text-dimmer); text-transform:uppercase; letter-spacing:.06em; }
+
+/* before learned, the address is hidden — only the physical port (Apto N) is known */
+.switch-door:not(.revealed) .switch-door-label { opacity:.4; font-style:italic; }
+.switch-door.revealed .switch-door-label { color:var(--v2-success); }
+
+@keyframes doorPulse { 0%,100%{box-shadow:0 0 0 rgba(232,163,61,0);} 50%{box-shadow:0 0 18px rgba(232,163,61,.55);} }
+.switch-door.broadcasting { border-color:var(--v2-accent); animation: doorPulse 1s ease-in-out infinite; }
+.switch-door.correct { border-color:var(--v2-success); background:rgba(79,157,105,0.14); box-shadow:0 0 22px rgba(79,157,105,0.3); }
+.switch-door.wrong { border-color:var(--v2-danger); animation: wShake .3s ease; }
+.switch-door.hint-glow { animation: hintGlowPulse 1.4s ease-in-out 2; border-color:var(--v2-accent); }
+
+</style>
+
+<style id="intro-style">
+/* ── INTRO SCREEN — v2 ── */
+#screen-intro{
+  background:var(--v2-bg);
+  align-items:center;justify-content:center;
+  padding:2.5rem 1.5rem;position:relative;overflow:hidden;
+}
+#screen-intro::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
+  background-size:46px 46px;
+  mask-image:radial-gradient(ellipse 75% 75% at 50% 40%,black 25%,transparent 100%);
+  -webkit-mask-image:radial-gradient(ellipse 75% 75% at 50% 40%,black 25%,transparent 100%);
+}
+#screen-intro::after{
+  content:'';position:absolute;top:-1px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(232,163,61,.4),transparent);
+  animation:introScan 9s linear infinite;pointer-events:none;z-index:2;
+}
+@keyframes introScan{0%{top:-1px;}100%{top:100vh;}}
+
+.intro-content{position:relative;z-index:4;display:flex;flex-direction:column;align-items:center;gap:1.7rem;width:100%;max-width:620px;}
+
+.intro-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:600;color:var(--v2-text-dim);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:.7rem;}
+.intro-eyebrow::before,.intro-eyebrow::after{content:'';display:block;width:30px;height:1px;background:var(--v2-hairline);}
+
+.intro-title-block{display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;}
+.intro-logo{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(3.2rem,9vw,5.2rem);line-height:1;color:var(--v2-text);letter-spacing:.01em;}
+.intro-logo-sub{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.78rem;letter-spacing:.3em;color:var(--v2-accent);margin-top:.2rem;}
+.intro-tagline{font-family:'Manrope',sans-serif;font-weight:500;font-size:1rem;color:var(--v2-text-dim);max-width:420px;margin:0;}
+
+/* ── LAYERS PANEL — LED patch-panel motif ── */
+.intro-panel{width:100%;background:var(--v2-surface);border:1px solid var(--v2-hairline);border-radius:8px;overflow:hidden;}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:.7rem 1.1rem;border-bottom:1px solid var(--v2-hairline);}
+.panel-head-title{font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--v2-text-dim);}
+.panel-head-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--v2-text-dimmer);letter-spacing:.06em;}
+.ports-row{display:grid;grid-template-columns:repeat(7,1fr);}
+.port-cell{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:1rem .3rem .9rem;border-right:1px solid var(--v2-hairline);}
+.port-cell:last-child{border-right:none;}
+.port-led{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.14);}
+.port-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--v2-text-dimmer);letter-spacing:.04em;}
+.port-icon{font-size:1.15rem;line-height:1;}
+.port-name{font-family:'Manrope',sans-serif;font-size:.58rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--v2-text-dim);text-align:center;line-height:1.3;}
+.panel-foot{display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.1rem;border-top:1px solid var(--v2-hairline);}
+.panel-foot-left{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--v2-text-dimmer);letter-spacing:.06em;}
+.panel-foot-dot{width:5px;height:5px;border-radius:50%;background:var(--v2-accent);}
+
+/* ── METRICS ROW ── */
+.intro-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;width:100%;}
+.intro-metric{background:var(--v2-surface);border:1px solid var(--v2-hairline);border-radius:8px;padding:.95rem 1.05rem;display:flex;flex-direction:column;gap:.3rem;}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--v2-text-dimmer);}
+.metric-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.7rem;line-height:1;color:var(--v2-text);}
+.metric-value.active{color:var(--v2-accent);}
+.metric-sub{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--v2-text-dimmer);letter-spacing:.05em;margin-top:.1rem;}
+
+/* ── BUTTON — parallelepípedo ── */
+.btn-v2{
+  font-family:'Manrope',sans-serif;font-weight:800;font-size:1rem;letter-spacing:.02em;
+  border:none;border-radius:0;padding:1.05rem 3.2rem;cursor:pointer;
+  background:linear-gradient(180deg,#f0b358,var(--v2-accent));color:#241804;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 3px 3px 0 var(--v2-accent-deep), 0 10px 18px -10px rgba(232,163,61,.45);
+  transition:transform .1s,filter .15s;margin-top:.4rem;
+}
+.btn-v2:active{transform:translate(1px,1px);filter:brightness(.94);}
+</style>
+</head>
+<body>
+
+<div class="screen active" id="screen-intro">
+
+  <!-- content -->
+  <div class="intro-content">
+
+    <div class="intro-eyebrow">Network Simulation System</div>
+
+    <!-- title -->
+    <div class="intro-title-block">
+      <h1 class="intro-logo">OSI</h1>
+      <div class="intro-logo-sub">PROTOCOL</div>
+      <p class="intro-tagline">Sete camadas. Uma rede. Zero margem para erro.</p>
+    </div>
+
+    <!-- layers panel -->
+    <div class="intro-panel">
+      <div class="panel-head">
+        <span class="panel-head-title">Camadas OSI / ISO</span>
+        <span class="panel-head-tag">RFC 1122 · IEEE 802</span>
+      </div>
+      <div class="ports-row">
+        <div class="port-cell"><span class="port-led"></span><span class="port-num">L1</span><span class="port-icon">🔌</span><span class="port-name">Física</span></div>
+        <div class="port-cell"><span class="port-led"></span><span class="port-num">L2</span><span class="port-icon">🔗</span><span class="port-name">Enlace</span></div>
+        <div class="port-cell"><span class="port-led"></span><span class="port-num">L3</span><span class="port-icon">🌐</span><span class="port-name">Rede</span></div>
+        <div class="port-cell"><span class="port-led"></span><span class="port-num">L4</span><span class="port-icon">🚛</span><span class="port-name">Transporte</span></div>
+        <div class="port-cell"><span class="port-led"></span><span class="port-num">L5</span><span class="port-icon">🤝</span><span class="port-name">Sessão</span></div>
+        <div class="port-cell"><span class="port-led"></span><span class="port-num">L6</span><span class="port-icon">🎨</span><span class="port-name">Apresent.</span></div>
+        <div class="port-cell"><span class="port-led"></span><span class="port-num">L7</span><span class="port-icon">💻</span><span class="port-name">Aplicação</span></div>
+      </div>
+      <div class="panel-foot">
+        <span class="panel-foot-left">7 camadas · pilha de encapsulamento</span>
+        <span class="panel-foot-dot"></span>
+      </div>
+    </div>
+
+    <!-- metrics -->
+    <div class="intro-metrics">
+      <div class="intro-metric">
+        <span class="metric-label">Vidas por camada</span>
+        <span class="metric-value">03</span>
+        <span class="metric-sub">RESET A CADA CAMADA</span>
+      </div>
+      <div class="intro-metric">
+        <span class="metric-label">Total de camadas</span>
+        <span class="metric-value">07</span>
+        <span class="metric-sub">OSI / ISO MODEL</span>
+      </div>
+      <div class="intro-metric">
+        <span class="metric-label">Simulação</span>
+        <span class="metric-value active">ativa</span>
+        <span class="metric-sub">FULL STACK TEST</span>
+      </div>
+    </div>
+
+    <button class="btn-v2" id="btn-start">Conectar →</button>
+
+  </div>
+</div>
+
+<div class="screen" id="screen-game">
+  <div class="game-topbar">
+    <div class="topbar-logo">OSI 🐧</div>
+    <div class="topbar-layer" id="topbar-layer">Camada <span>—</span></div>
+    <div class="lives-row" id="lives-row">🐧🐧🐧</div>
+  </div>
+  <div class="prog-wrap"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="game-body">
+    <div class="gsidebar">
+      <div class="osi-stack" id="osi-stack"></div>
+      <div class="tux-box">
+        <div class="tux-wrap"><div id="tux-sidebar"></div></div>
+        <div class="tux-bubble" id="tux-bubble">Vamos montar essa rede!</div>
+      </div>
+    </div>
+    <div class="gmain" id="gmain"></div>
+  </div>
+</div>
+
+<div class="screen" id="screen-sim">
+  <div class="sim-inner">
+    <div class="sim-title">🌐 Testando sua Rede</div>
+    <div class="sim-sub">Verificando todas as camadas em conjunto...</div>
+    <div class="sim-grid">
+      <div class="sim-stack" id="sim-stack"></div>
+      <div class="sim-right">
+        <div class="tux-wrap"><div id="tux-sim"></div></div>
+        <div class="tux-bubble" id="tux-sim-bubble" style="width:100%">Preparando simulação...</div>
+        <div class="sim-log" id="sim-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="screen-result">
+  <div class="tux-wrap"><div id="tux-result"></div></div>
+  <div class="result-title" id="result-title">Resultado</div>
+  <div class="result-pts" id="result-pts">0 pts</div>
+  <div class="result-msg" id="result-msg"></div>
+  <div class="result-errors" id="result-errors">
+    <h4>⚠️ Camadas para revisar</h4>
+    <div id="result-err-list"></div>
+  </div>
+  <button class="gbtn gbtn-purple gbtn-lg" id="btn-restart">🔄 Jogar novamente</button>
+</div>
+
+<script>
+
+const RJ45Challenge = (() => {
+
+  const STANDARDS = {
+    'T568B': [
+      { id: 'wo', label: 'Branco-Laranja', color: '#ff8c00', stripe: '#ffffff' },
+      { id: 'o',  label: 'Laranja',        color: '#ff6600', stripe: null      },
+      { id: 'wg', label: 'Branco-Verde',   color: '#22bb44', stripe: '#ffffff' },
+      { id: 'b',  label: 'Azul',           color: '#1a5fff', stripe: null      },
+      { id: 'wb', label: 'Branco-Azul',    color: '#1a5fff', stripe: '#ffffff' },
+      { id: 'g',  label: 'Verde',          color: '#22bb44', stripe: null      },
+      { id: 'wm', label: 'Branco-Marrom',  color: '#8B4513', stripe: '#ffffff' },
+      { id: 'm',  label: 'Marrom',         color: '#8B4513', stripe: null      },
+    ],
+    'T568A': [
+      { id: 'wg', label: 'Branco-Verde',   color: '#22bb44', stripe: '#ffffff' },
+      { id: 'g',  label: 'Verde',          color: '#22bb44', stripe: null      },
+      { id: 'wo', label: 'Branco-Laranja', color: '#ff8c00', stripe: '#ffffff' },
+      { id: 'b',  label: 'Azul',           color: '#1a5fff', stripe: null      },
+      { id: 'wb', label: 'Branco-Azul',    color: '#1a5fff', stripe: '#ffffff' },
+      { id: 'o',  label: 'Laranja',        color: '#ff6600', stripe: null      },
+      { id: 'wm', label: 'Branco-Marrom',  color: '#8B4513', stripe: '#ffffff' },
+      { id: 'm',  label: 'Marrom',         color: '#8B4513', stripe: null      },
+    ],
+  };
+
+  let selectedStandard = 'T568B';
+  let CORRECT_ORDER = STANDARDS['T568B'];
+
+  let slots        = Array(8).fill(null);
+  let crimpTried   = false;
+  let hintUsed     = false;
+  let slotResults  = Array(8).fill(null);
+  let draggingId   = null;
+  let draggingFrom = null; // 'tray' | slot index (number)
+  let _container   = null;
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ── SVG ─────────────────────────────────────────────────
+
+  function wireSVG(wire, w = 36, h = 80) {
+    if (!wire) return '';
+    const stripe = wire.stripe
+      ? `<rect x="${w*0.28}" y="0" width="${w*0.44}" height="${h}" fill="rgba(255,255,255,0.52)" rx="1"/>`
+      : '';
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="wgl${wire.id}${w}" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%"   stop-color="rgba(0,0,0,0.38)"/>
+        <stop offset="22%"  stop-color="rgba(255,255,255,0.2)"/>
+        <stop offset="50%"  stop-color="rgba(255,255,255,0.07)"/>
+        <stop offset="78%"  stop-color="rgba(255,255,255,0.16)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.32)"/>
+      </linearGradient></defs>
+      <rect x="2" y="0" width="${w-4}" height="${h}" fill="${wire.color}" rx="3"/>
+      ${stripe}
+      <rect x="2" y="0" width="${w-4}" height="${h}" fill="url(#wgl${wire.id}${w})" rx="3"/>
+      <rect x="2" y="0" width="${w-4}" height="4" fill="rgba(255,255,255,0.2)" rx="2"/>
+    </svg>`;
+  }
+
+  function rj45SVG(slotArr, results) {
+    const W=320, H=200, slotW=22, slotH=55, slotGap=4;
+    const totalW = 8*slotW + 7*slotGap;
+    const startX = (W - totalW) / 2;
+    const slotY  = 88;
+
+    let slotsSVG = '';
+    for (let i = 0; i < 8; i++) {
+      const x    = startX + i*(slotW+slotGap);
+      const wire = slotArr[i] ? CORRECT_ORDER.find(w => w.id === slotArr[i]) : null;
+      const res  = results ? results[i] : null;
+      let stroke = 'rgba(255,255,255,0.12)';
+      if (res === 'ok')  stroke = '#22dd66';
+      if (res === 'err') stroke = '#ff3a4e';
+
+      // slot is clickable to remove wire
+      const clickHandler = wire ? `onclick="RJ45Challenge._clickSlot(${i})"` : '';
+      const cursorStyle  = wire ? 'cursor:pointer;' : '';
+
+      slotsSVG += `
+        <g class="rj45-slot" id="rj45slot-${i}" data-slot="${i}"
+           draggable="${wire ? 'true' : 'false'}"
+           style="${cursorStyle}"
+           ${clickHandler}>
+          <rect x="${x}" y="${slotY}" width="${slotW}" height="${slotH}"
+                fill="rgba(10,10,20,0.85)" stroke="${stroke}" stroke-width="1.5" rx="2"/>
+          ${wire
+            ? `<g transform="translate(${x+1},${slotY+1})">${wireSVG(wire, slotW-2, slotH-2)}</g>`
+            : `<text x="${x+slotW/2}" y="${slotY+slotH/2+4}" text-anchor="middle"
+                     fill="rgba(255,255,255,0.14)" font-size="10" font-family="monospace">${i+1}</text>`
+          }
+          ${res === 'ok'  ? `<text x="${x+slotW/2}" y="${slotY-4}" text-anchor="middle" font-size="9" fill="#22dd66">✓</text>` : ''}
+          ${res === 'err' ? `<text x="${x+slotW/2}" y="${slotY-4}" text-anchor="middle" font-size="9" fill="#ff3a4e">✗</text>` : ''}
+        </g>`;
+    }
+
+    let pins = '';
+    for (let i = 0; i < 8; i++) {
+      const x = startX + i*(slotW+slotGap) + slotW/2;
+      pins += `<rect x="${x-3}" y="${slotY+slotH}" width="6" height="14" fill="#d4af37" rx="1"/>
+               <rect x="${x-2}" y="${slotY+slotH+12}" width="4" height="3" fill="#b8960c" rx="0.5"/>`;
+    }
+
+    return `<svg id="rj45-svg" viewBox="0 0 ${W} ${H}" width="100%"
+              xmlns="http://www.w3.org/2000/svg" style="max-width:380px;display:block;margin:0 auto;overflow:visible">
+      <defs>
+        <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%"   stop-color="#3a3a4a"/>
+          <stop offset="40%"  stop-color="#28283a"/>
+          <stop offset="100%" stop-color="#1a1a28"/>
+        </linearGradient>
+        <linearGradient id="latchGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%"   stop-color="#555566"/>
+          <stop offset="100%" stop-color="#333344"/>
+        </linearGradient>
+        <filter id="bodyShadow"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="rgba(0,0,0,0.6)"/></filter>
+      </defs>
+      <rect x="30" y="50" width="${W-60}" height="120" rx="10"
+            fill="url(#bodyGrad)" filter="url(#bodyShadow)"/>
+      <rect x="30" y="50" width="${W-60}" height="120" rx="10"
+            fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+      <rect x="32" y="51" width="${W-64}" height="3" rx="2" fill="rgba(255,255,255,0.2)"/>
+      <rect x="${W/2-22}" y="38" width="44" height="18" rx="5"
+            fill="url(#latchGrad)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <rect x="${W/2-18}" y="41" width="36" height="4" rx="2" fill="rgba(255,255,255,0.12)"/>
+      <rect x="${startX-4}" y="52" width="${totalW+8}" height="36"
+            fill="rgba(0,0,0,0.4)" rx="4" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      ${slotsSVG}
+      ${pins}
+      <text x="${W/2}" y="178" text-anchor="middle"
+            fill="rgba(255,255,255,0.28)" font-size="9"
+            font-family="'Courier New',monospace" letter-spacing="1">RJ-45 · ${selectedStandard}</text>
+    </svg>`;
+  }
+
+  function crimperSVG() {
+    const col = '#9988ff';
+    return `<svg viewBox="0 0 80 160" width="80" height="160" xmlns="http://www.w3.org/2000/svg"
+              style="transition:filter .3s" id="crimper-svg">
+      <defs>
+        <linearGradient id="crimperBody" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#2a2a3a"/>
+          <stop offset="50%"  stop-color="#3a3a4e"/>
+          <stop offset="100%" stop-color="#222230"/>
+        </linearGradient>
+        <linearGradient id="handleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="${col}88"/>
+          <stop offset="50%"  stop-color="${col}cc"/>
+          <stop offset="100%" stop-color="${col}88"/>
+        </linearGradient>
+      </defs>
+      <path d="M15 30 L65 30 L70 55 L10 55 Z"
+            fill="url(#crimperBody)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+      <rect x="22" y="38" width="36" height="10" rx="2"
+            fill="rgba(0,0,0,0.4)" stroke="${col}44" stroke-width="1"/>
+      ${Array.from({length:8},(_,i)=>`<rect x="${24+i*4.2}" y="40" width="2.5" height="6" fill="${col}88" rx="0.5"/>`).join('')}
+      <circle cx="40" cy="60" r="6" fill="#1a1a2a" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+      <circle cx="40" cy="60" r="2.5" fill="${col}"/>
+      <path d="M20 60 L18 130 L38 130 L40 60 Z"
+            fill="url(#crimperBody)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <path d="M60 60 L62 130 L42 130 L40 60 Z"
+            fill="url(#crimperBody)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      ${Array.from({length:8},(_,i)=>`
+        <rect x="21" y="${70+i*7}" width="16" height="3" rx="1.5" fill="url(#handleGrad)" opacity="0.7"/>
+        <rect x="43" y="${70+i*7}" width="16" height="3" rx="1.5" fill="url(#handleGrad)" opacity="0.7"/>
+      `).join('')}
+      <text x="40" y="145" text-anchor="middle" fill="${col}99"
+            font-size="7" font-family="'Exo 2',sans-serif" font-weight="800" letter-spacing="0.5">CRIMPER</text>
+    </svg>`;
+  }
+
+  // ── Render ───────────────────────────────────────────────
+
+  function render(container) {
+    _container = container;
+    const shuffled = shuffle(CORRECT_ORDER);
+
+    container.innerHTML = `
+      <div class="rj45-wrap" id="rj45-wrap">
+        <div class="rj45-connector-area">
+          <div class="rj45-label">Clique ou arraste os fios para os slots · clique no conector para remover</div>
+          <div id="rj45-svg-wrap">${rj45SVG(slots, slotResults)}</div>
+        </div>
+        <div class="rj45-bottom">
+          <div class="wire-tray">
+            <div class="tray-label">🧰 Fios — clique para encaixar ou arraste para um slot</div>
+            <div class="tray-wires" id="tray-wires">
+              ${shuffled.map(w => `
+                <div class="tray-wire" id="tray-${w.id}" data-wire="${w.id}" draggable="true" title="${w.label}">
+                  ${wireSVG(w, 22, 54)}
+                  <span class="tray-wire-label">${w.label}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="toolbox">
+            <div class="tray-label">🔧 Ferramentas</div>
+            <div class="toolbox-inner">
+              <div class="tool-item" id="crimper-tool" title="Crimper — arraste até o conector para crimpar">
+                ${crimperSVG()}
+                <span class="tool-label">Arraste p/ crimpar</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    attachEvents(container);
+  }
+
+  // ── Events ───────────────────────────────────────────────
+
+  function attachEvents(container) {
+    // drag from tray + click-to-place
+    container.querySelectorAll('.tray-wire').forEach(el => {
+      el.addEventListener('dragstart', e => {
+        draggingId   = el.dataset.wire;
+        draggingFrom = 'tray';
+        e.dataTransfer.setData('text/plain', el.dataset.wire);
+        setTimeout(() => el.classList.add('dragging'), 0);
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+
+      // click → place in next free slot (left to right)
+      el.addEventListener('click', () => {
+        const wid = el.dataset.wire;
+        const nextFree = slots.indexOf(null);
+        if (nextFree === -1) return; // all slots full
+        draggingFrom = 'tray';
+        draggingId   = wid;
+        dropWireToSlot(wid, nextFree, container);
+      });
+    });
+
+    // drag from slot (SVG g element)
+    container.addEventListener('dragstart', e => {
+      const g = e.target.closest('[data-slot]');
+      if (g && !e.target.closest('.tray-wire')) {
+        const idx = parseInt(g.dataset.slot);
+        if (slots[idx] !== null) {
+          draggingId   = slots[idx];
+          draggingFrom = idx;
+          e.dataTransfer.setData('text/plain', slots[idx]);
+        }
+      }
+    });
+
+    // drop back to tray
+    const tray = container.querySelector('#tray-wires');
+    tray.addEventListener('dragover', e => { e.preventDefault(); tray.classList.add('drag-over'); });
+    tray.addEventListener('dragleave', () => tray.classList.remove('drag-over'));
+    tray.addEventListener('drop', e => {
+      e.preventDefault(); tray.classList.remove('drag-over');
+      if (typeof draggingFrom === 'number') {
+        returnSlotToTray(draggingFrom, container);
+      }
+    });
+
+    // crimper — drag-to-connector to crimp (no longer click)
+    const crimper = container.querySelector('#crimper-tool');
+    crimper.setAttribute('draggable', 'true');
+    crimper.style.cursor = 'grab';
+
+    crimper.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', '__crimper__');
+      draggingId   = '__crimper__';
+      draggingFrom = 'crimper';
+      crimper.style.filter = 'drop-shadow(0 0 12px #e8a33d)';
+    });
+    crimper.addEventListener('dragend', () => {
+      crimper.style.filter = '';
+      draggingId   = null;
+      draggingFrom = null;
+    });
+
+    // accept crimper drop on the connector area (svgWrap) or the whole rj45-connector-area
+    const svgWrap = container.querySelector('#rj45-svg-wrap');
+    const connectorArea = container.querySelector('.rj45-connector-area');
+    [svgWrap, connectorArea].forEach(target => {
+      target.addEventListener('dragover', e => {
+        if (draggingId === '__crimper__') e.preventDefault();
+        else {
+          const g = e.target.closest('[data-slot]');
+          if (g) e.preventDefault();
+        }
+      });
+      target.addEventListener('drop', e => {
+        const data = e.dataTransfer.getData('text/plain');
+        if (data === '__crimper__') {
+          e.preventDefault();
+          tryCrimp(container);
+          return;
+        }
+        const g = e.target.closest('[data-slot]');
+        if (!g) return;
+        e.preventDefault();
+        const wid = data;
+        const idx = parseInt(g.dataset.slot);
+        dropWireToSlot(wid, idx, container);
+      });
+    });
+  }
+
+  // called from SVG onclick (global scope via exposed method)
+  function _clickSlot(idx) {
+    if (!_container) return;
+    if (slots[idx] === null) return;
+    returnSlotToTray(idx, _container);
+  }
+
+  function returnSlotToTray(idx, container) {
+    const wid = slots[idx];
+    if (!wid) return;
+    slots[idx]       = null;
+    slotResults[idx] = null;
+    showTrayWire(wid, container);
+    refreshConnector(container);
+    draggingId   = null;
+    draggingFrom = null;
+  }
+
+  function dropWireToSlot(wid, idx, container) {
+    // if slot occupied, return old wire to tray
+    if (slots[idx] !== null) {
+      showTrayWire(slots[idx], container);
+    }
+    // if wire came from another slot, clear it
+    if (typeof draggingFrom === 'number' && draggingFrom !== idx) {
+      slots[draggingFrom]       = null;
+      slotResults[draggingFrom] = null;
+    }
+    slots[idx]       = wid;
+    slotResults[idx] = null;
+    hideTrayWire(wid, container);
+    refreshConnector(container);
+    draggingId   = null;
+    draggingFrom = null;
+  }
+
+  function hideTrayWire(wid, container) {
+    const el = container.querySelector(`#tray-${wid}`);
+    if (el) el.style.display = 'none';
+  }
+  function showTrayWire(wid, container) {
+    const el = container.querySelector(`#tray-${wid}`);
+    if (el) el.style.display = '';
+  }
+
+  function refreshConnector(container) {
+    const wrap = container.querySelector('#rj45-svg-wrap');
+    if (wrap) wrap.innerHTML = rj45SVG(slots, slotResults);
+  }
+
+  // ── Crimp ────────────────────────────────────────────────
+
+  function tryCrimp(container) {
+    if (slots.some(s => s === null)) {
+      container.dispatchEvent(new CustomEvent('rj45-msg',
+        { detail: 'Preencha todos os 8 slots antes de crimpar!' }));
+      return;
+    }
+
+    crimpTried = true;
+    hintUsed   = false;
+
+    let allOk = true;
+    for (let i = 0; i < 8; i++) {
+      const ok   = CORRECT_ORDER[i].id === slots[i];
+      slotResults[i] = ok ? 'ok' : 'err';
+      if (!ok) allOk = false;
+    }
+
+    refreshConnector(container);
+    flashCrimper(container, allOk);
+
+    if (allOk) {
+      animateCrimp(container);
+      // SHORT delay so player sees the green flash, then fire success
+      setTimeout(() => {
+        container.dispatchEvent(new CustomEvent('rj45-success'));
+      }, 900);
+    } else {
+      container.dispatchEvent(new CustomEvent('rj45-fail'));
+    }
+  }
+
+  function flashCrimper(container, ok) {
+    const svg = container.querySelector('#crimper-svg');
+    if (!svg) return;
+    const col = ok ? '#4f9d69' : '#c4554d';
+    svg.style.filter = `drop-shadow(0 0 18px ${col})`;
+    setTimeout(() => { svg.style.filter = ''; }, 900);
+  }
+
+  function animateCrimp(container) {
+    const svg = container.querySelector('#crimper-svg');
+    if (!svg) return;
+    svg.animate(
+      [{ transform:'translateY(0) scaleY(1)' },
+       { transform:'translateY(14px) scaleY(0.86)' },
+       { transform:'translateY(0) scaleY(1)' }],
+      { duration:380, easing:'cubic-bezier(.4,0,.2,1)' }
+    );
+  }
+
+  // ── Hint ─────────────────────────────────────────────────
+
+  function getHint() {
+    if (!crimpTried || hintUsed) return null;
+    for (let i = 0; i < 8; i++) {
+      if (slotResults[i] === 'err') {
+        hintUsed = true;
+        return {
+          slot:           i + 1,
+          actual:         CORRECT_ORDER.find(w => w.id === slots[i])?.label ?? '(vazio)',
+          expected:       CORRECT_ORDER[i].label,
+          actualColor:    CORRECT_ORDER.find(w => w.id === slots[i])?.color ?? '#888',
+          expectedColor:  CORRECT_ORDER[i].color,
+          actualStripe:   CORRECT_ORDER.find(w => w.id === slots[i])?.stripe ?? null,
+          expectedStripe: CORRECT_ORDER[i].stripe,
+        };
+      }
+    }
+    return null;
+  }
+
+  // ── Reset ─────────────────────────────────────────────────
+
+  function setStandard(std) {
+    if (STANDARDS[std]) {
+      selectedStandard = std;
+      CORRECT_ORDER = STANDARDS[std];
+    }
+  }
+
+  function reset() {
+    slots        = Array(8).fill(null);
+    slotResults  = Array(8).fill(null);
+    crimpTried   = false;
+    hintUsed     = false;
+    draggingId   = null;
+    draggingFrom = null;
+    _container   = null;
+  }
+
+  return { render, reset, getHint, _clickSlot, CORRECT_ORDER, setStandard, STANDARDS };
+})();
+
+
+/* ═══════════════════════════════════════
+   SWITCH CHALLENGE (CAMADA 2 — PORTARIA DO PRÉDIO)
+   O switch é simulado como o porteiro de um prédio. As 4 portas
+   começam como apartamentos "??:??" (mistério) — o porteiro sabe que
+   existem 4 portas, mas não sabe quem mora em cada uma. O jogador
+   decide, a cada encomenda, qual ação é a correta:
+     • endereço desconhecido → clicar em "Fazer Broadcast" revela qual
+       porta é a certa e anota no caderno (tabela CAM) — mas a entrega
+       só se completa quando o jogador clica na porta agora revelada.
+     • endereço já conhecido → clicar direto na porta certa (unicast),
+       sem precisar de broadcast.
+   Usar a ação errada para o contexto conta como erro: clicar numa
+   porta sem broadcast prévio é um chute impossível de justificar;
+   fazer broadcast de um endereço já conhecido funcionaria, mas
+   desperdiça banda da rede.
+═══════════════════════════════════════ */
+
+const SwitchChallenge = (() => {
+
+  const DOORS = [
+    { addr: 'AA:BB', num: 1 },
+    { addr: 'CC:DD', num: 2 },
+    { addr: 'EE:FF', num: 3 },
+    { addr: 'GG:HH', num: 4 },
+  ];
+
+  // Sequência de encomendas. AA:BB e CC:DD repetem para demonstrar que,
+  // depois de aprendido, o porteiro entrega direto (sem broadcast).
+  const ROUNDS = ['CC:DD', 'AA:BB', 'EE:FF', 'CC:DD', 'GG:HH', 'AA:BB'];
+
+  let roundIdx   = 0;
+  let learned    = new Set();
+  let busy       = false; // trava cliques durante animações
+  let revealedThisRound = false; // true se o endereço foi revelado via broadcast nesta rodada
+  let _container = null;
+
+  function reset() {
+    roundIdx   = 0;
+    learned    = new Set();
+    busy       = false;
+    revealedThisRound = false;
+    _container = null;
+  }
+
+  function currentTarget() { return ROUNDS[roundIdx]; }
+  function doorLabel(addr) { return learned.has(addr) ? addr : '??:??'; }
+
+  function render(container) {
+    _container = container;
+
+    container.innerHTML = `
+      <div class="switch-wrap" id="switch-wrap">
+        <div class="switch-top">
+          <div class="switch-round-badge">📦 Encomenda <strong id="sw-round-num">1</strong> de <strong>${ROUNDS.length}</strong></div>
+          <div class="switch-cam-panel">
+            <div class="switch-cam-title">📓 Caderno do Porteiro (Tabela CAM)</div>
+            <div class="switch-cam-list" id="sw-cam-list"><span class="switch-cam-empty">ainda vazio...</span></div>
+          </div>
+        </div>
+        <div class="switch-stage">
+          <div class="switch-package-area">
+            <div class="switch-package" id="sw-package">
+              <div class="switch-package-icon">📦</div>
+              <div class="switch-package-label">Para: <strong id="sw-package-dest">--</strong></div>
+            </div>
+          </div>
+          <button class="switch-broadcast-btn" id="sw-broadcast-btn" type="button">📢 Fazer Broadcast</button>
+          <div class="switch-building" id="sw-building">
+            ${DOORS.map(d => `
+              <div class="switch-door" id="sw-door-${d.num}" data-addr="${d.addr}">
+                <div class="switch-door-icon">🚪</div>
+                <div class="switch-door-label" id="sw-doorlabel-${d.num}">??:??</div>
+                <div class="switch-door-sub">Apto ${d.num}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    container.querySelectorAll('.switch-door').forEach(el => {
+      el.addEventListener('click', () => { if (!busy) clickDoor(el.dataset.addr); });
+    });
+    container.querySelector('#sw-broadcast-btn')
+      ?.addEventListener('click', () => { if (!busy) clickBroadcast(); });
+
+    refreshDoorLabels();
+    startRound();
+  }
+
+  function refreshDoorLabels() {
+    if (!_container) return;
+    DOORS.forEach(d => {
+      const isKnown = learned.has(d.addr);
+      const labelEl = _container.querySelector(`#sw-doorlabel-${d.num}`);
+      const doorEl  = _container.querySelector(`#sw-door-${d.num}`);
+      if (labelEl) labelEl.textContent = doorLabel(d.addr);
+      if (doorEl)  doorEl.classList.toggle('revealed', isKnown);
+    });
+  }
+
+  function updateCamList() {
+    const list = _container.querySelector('#sw-cam-list');
+    if (!list) return;
+    list.innerHTML = learned.size === 0
+      ? '<span class="switch-cam-empty">ainda vazio...</span>'
+      : [...learned].map(a => `<span class="switch-cam-entry">${a}</span>`).join('');
+  }
+
+  function startRound() {
+    if (!_container) return;
+    busy = false;
+    revealedThisRound = false;
+    const target = currentTarget();
+
+    const numEl  = _container.querySelector('#sw-round-num');
+    const destEl = _container.querySelector('#sw-package-dest');
+    const pkg    = _container.querySelector('#sw-package');
+    const btn    = _container.querySelector('#sw-broadcast-btn');
+
+    if (numEl)  numEl.textContent  = roundIdx + 1;
+    if (destEl) destEl.textContent = target;
+    pkg?.classList.remove('delivered', 'bad');
+    btn?.classList.remove('wrong', 'hint-glow');
+    _container.querySelectorAll('.switch-door').forEach(d =>
+      d.classList.remove('correct', 'wrong', 'broadcasting', 'hint-glow'));
+  }
+
+  function advanceOrFinish() {
+    roundIdx++;
+    if (roundIdx >= ROUNDS.length) {
+      _container.dispatchEvent(new CustomEvent('switch-success'));
+    } else {
+      startRound();
+    }
+  }
+
+  // ── Clicar numa porta (ação correta apenas quando o endereço já é conhecido) ──
+  function clickDoor(addr) {
+    if (busy || !_container) return;
+    const target = currentTarget();
+    const doorEl = _container.querySelector(`.switch-door[data-addr="${addr}"]`);
+    const pkg    = _container.querySelector('#sw-package');
+
+    if (!learned.has(target)) {
+      // Não dá para adivinhar uma porta que ainda é "??:??"
+      busy = true;
+      doorEl?.classList.add('wrong');
+      pkg?.classList.add('bad');
+      setTimeout(() => { doorEl?.classList.remove('wrong'); pkg?.classList.remove('bad'); busy = false; }, 550);
+      _container.dispatchEvent(new CustomEvent('switch-wrong', { detail: { reason: 'needs-broadcast', target } }));
+      return;
+    }
+
+    if (addr === target) {
+      busy = true;
+      doorEl?.classList.add('correct');
+      pkg?.classList.add('delivered');
+      const isFinal = roundIdx === ROUNDS.length - 1;
+      _container.dispatchEvent(new CustomEvent('switch-correct', { detail: { addr, final: isFinal, viaBroadcast: revealedThisRound } }));
+      setTimeout(advanceOrFinish, 900);
+    } else {
+      busy = true;
+      doorEl?.classList.add('wrong');
+      pkg?.classList.add('bad');
+      setTimeout(() => { doorEl?.classList.remove('wrong'); pkg?.classList.remove('bad'); busy = false; }, 550);
+      _container.dispatchEvent(new CustomEvent('switch-wrong', { detail: { reason: 'wrong-door', addr, target } }));
+    }
+  }
+
+  // ── Clicar em Broadcast (ação correta apenas quando o endereço ainda é desconhecido) ──
+  function clickBroadcast() {
+    if (busy || !_container) return;
+    const target = currentTarget();
+    const btn    = _container.querySelector('#sw-broadcast-btn');
+    const doors  = _container.querySelectorAll('.switch-door');
+
+    if (learned.has(target)) {
+      // já está no caderno — broadcast aqui seria desperdício de banda
+      busy = true;
+      btn?.classList.add('wrong');
+      setTimeout(() => { btn?.classList.remove('wrong'); busy = false; }, 550);
+      _container.dispatchEvent(new CustomEvent('switch-wrong', { detail: { reason: 'unnecessary-broadcast', target } }));
+      return;
+    }
+
+    busy = true;
+    doors.forEach(d => d.classList.add('broadcasting'));
+    _container.dispatchEvent(new CustomEvent('switch-msg', { detail: '📢 Avisando o prédio inteiro...' }));
+
+    setTimeout(() => {
+      doors.forEach(d => d.classList.remove('broadcasting'));
+      learned.add(target);
+      revealedThisRound = true;
+      refreshDoorLabels();
+      updateCamList();
+      busy = false;
+      _container.dispatchEvent(new CustomEvent('switch-msg',
+        { detail: `📓 Endereço ${target} descoberto! Agora clique na porta revelada para entregar.` }));
+    }, 1300);
+  }
+
+  function hintGlow() {
+    if (!_container) return;
+    const target = currentTarget();
+    if (learned.has(target)) {
+      const doorEl = _container.querySelector(`.switch-door[data-addr="${target}"]`);
+      doorEl?.classList.add('hint-glow');
+      setTimeout(() => doorEl?.classList.remove('hint-glow'), 2800);
+    } else {
+      const btn = _container.querySelector('#sw-broadcast-btn');
+      btn?.classList.add('hint-glow');
+      setTimeout(() => btn?.classList.remove('hint-glow'), 2800);
+    }
+  }
+
+  return { render, reset, hintGlow };
+})();
+
+
+const Tux = (() => {
+  const BODY=`<ellipse cx="60" cy="95" rx="38" ry="44" fill="#111"/><ellipse cx="60" cy="105" rx="22" ry="29" fill="#f5f0e8"/><ellipse cx="25" cy="88" rx="11" ry="27" fill="#111" transform="rotate(-15 25 88)"/><ellipse cx="95" cy="88" rx="11" ry="27" fill="#111" transform="rotate(15 95 88)"/><ellipse cx="44" cy="136" rx="14" ry="7" fill="#f5a623" transform="rotate(-10 44 136)"/><ellipse cx="76" cy="136" rx="14" ry="7" fill="#f5a623" transform="rotate(10 76 136)"/>`;
+  const HEAD=`<ellipse cx="60" cy="48" rx="32" ry="30" fill="#111"/><ellipse cx="60" cy="52" rx="20" ry="20" fill="#f5f0e8"/><ellipse cx="60" cy="63" rx="9" ry="5" fill="#f5a623"/>`;
+  const EYES={
+    normal:`<circle cx="51" cy="46" r="6" fill="white"/><circle cx="69" cy="46" r="6" fill="white"/><circle cx="52" cy="47" r="3.5" fill="#111"/><circle cx="70" cy="47" r="3.5" fill="#111"/><circle cx="53" cy="46" r="1.2" fill="white"/><circle cx="71" cy="46" r="1.2" fill="white"/>`,
+    happy:`<path d="M44 48 Q51 40 58 48" stroke="#111" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M62 48 Q69 40 76 48" stroke="#111" stroke-width="2.5" fill="none" stroke-linecap="round"/>`,
+    superHappy:`<path d="M42 50 Q51 38 60 50" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M60 50 Q69 38 78 50" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    sad:`<circle cx="51" cy="48" r="6" fill="white"/><circle cx="69" cy="48" r="6" fill="white"/><circle cx="51" cy="50" r="3.5" fill="#111"/><circle cx="69" cy="50" r="3.5" fill="#111"/><path d="M44 42 Q51 46 57 43" stroke="#111" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M63 43 Q69 46 76 42" stroke="#111" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    think:`<circle cx="51" cy="46" r="6" fill="white"/><circle cx="69" cy="46" r="6" fill="white"/><circle cx="53" cy="46" r="3.5" fill="#111"/><circle cx="71" cy="46" r="3.5" fill="#111"/><path d="M44 40 Q51 37 57 40" stroke="#111" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    wow:`<circle cx="51" cy="46" r="8" fill="white"/><circle cx="69" cy="46" r="8" fill="white"/><circle cx="51" cy="46" r="4.5" fill="#111"/><circle cx="69" cy="46" r="4.5" fill="#111"/><circle cx="52" cy="44" r="1.8" fill="white"/><circle cx="70" cy="44" r="1.8" fill="white"/>`,
+    wink:`<path d="M44 48 Q51 41 58 48" stroke="#111" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="69" cy="46" r="6" fill="white"/><circle cx="70" cy="47" r="3.5" fill="#111"/><circle cx="71" cy="46" r="1.2" fill="white"/>`,
+  };
+  const MOUTHS={
+    normal:`<path d="M53 66 Q60 70 67 66" stroke="#d4891a" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    big:`<path d="M50 64 Q60 75 70 64" stroke="#d4891a" stroke-width="2.5" fill="#f5a623" stroke-linecap="round"/>`,
+    huge:`<path d="M47 63 Q60 78 73 63" stroke="#d4891a" stroke-width="2.5" fill="#f5a623" stroke-linecap="round"/><path d="M52 66 Q60 73 68 66" fill="#c0392b" stroke="none"/>`,
+    sad:`<path d="M53 70 Q60 64 67 70" stroke="#d4891a" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    open:`<ellipse cx="60" cy="67" rx="8" ry="6" fill="#d4891a"/>`,
+    smirk:`<path d="M54 66 Q62 70 68 65" stroke="#d4891a" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+  };
+  const CHEEKS=`<circle cx="41" cy="57" r="7" fill="#ff6b8a" opacity="0.4"/><circle cx="79" cy="57" r="7" fill="#ff6b8a" opacity="0.4"/>`;
+  const SWEAT=`<ellipse cx="88" cy="32" rx="5" ry="8" fill="#74b9ff" opacity="0.85"/>`;
+  const STARS=`<text x="18" y="28" font-size="14" opacity=".9">⭐</text><text x="88" y="28" font-size="14" opacity=".9">⭐</text>`;
+  const BANG=`<text x="83" y="22" font-size="18" fill="#ffd32a">!</text>`;
+  const PRESETS={
+    idle:{eyes:'normal',mouth:'normal'},happy:{eyes:'happy',mouth:'big',cheeks:true},
+    superHappy:{eyes:'superHappy',mouth:'huge',cheeks:true,acc:STARS},
+    sad:{eyes:'sad',mouth:'sad',acc:SWEAT},think:{eyes:'think',mouth:'smirk'},
+    wow:{eyes:'wow',mouth:'open',acc:BANG},wink:{eyes:'wink',mouth:'big',cheeks:true},
+    celebrate:{eyes:'superHappy',mouth:'huge',cheeks:true,acc:STARS},
+    worried:{eyes:'sad',mouth:'open',acc:SWEAT},
+  };
+  function make(preset='idle',size=110){const p=PRESETS[preset]||PRESETS.idle;return `<svg viewBox="0 0 120 150" width="${size}" height="${Math.round(size*150/120)}" xmlns="http://www.w3.org/2000/svg">${BODY}${HEAD}${EYES[p.eyes]}${MOUTHS[p.mouth]}${p.cheeks?CHEEKS:''}${p.acc||''}</svg>`;}
+  function render(id,preset,size){const el=document.getElementById(id);if(el)el.innerHTML=make(preset,size);}
+  function pop(id){const el=document.getElementById(id);if(!el)return;el.animate([{transform:'scale(1)'},{transform:'scale(1.2)'},{transform:'scale(1)'}],{duration:320,easing:'cubic-bezier(.34,1.56,.64,1)'});}
+  function bounce(id){const el=document.getElementById(id);if(!el)return;el.animate([{transform:'translateY(0)'},{transform:'translateY(-14px)'},{transform:'translateY(0)'},{transform:'translateY(-7px)'},{transform:'translateY(0)'}],{duration:650,easing:'ease-in-out'});}
+  function shake(id){const el=document.getElementById(id);if(!el)return;el.animate([{transform:'translateX(0)'},{transform:'translateX(-10px)'},{transform:'translateX(10px)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],{duration:400,easing:'ease-in-out'});}
+  return{render,pop,bounce,shake};
+})();
+
+const LAYERS=[
+  {id:1,cls:'l1',color:'#ff3a4e',emoji:'🔌',name:'Camada Física',short:'Física',
+   intro:{text:`A Camada Física é a base de tudo. Ela transmite bits brutos pelo meio físico: cabos, fibra óptica, sinais de rádio.\n\nO cabo de rede RJ45 é um dos meios mais comuns. Ele precisa ser montado na ordem exata — as normas T568A e T568B definem qual fio vai em cada posição. A diferença entre elas está na posição dos pares laranja e verde.`,analogy:{icon:'🔌',text:`Montar um cabo de rede é como encaixar peças de um quebra-cabeça: cada fio tem sua cor e posição exata. Uma troca de posição e o sinal não passa — a ordem importa tanto quanto a conexão.`}},
+   challenge:{type:'rj45',title:'Monte o cabo RJ45!',instruction:`Escolha o padrão de cabeamento e monte o cabo na ordem correta. Depois, use o <strong>Crimper</strong> para fixar. A dica só está disponível após a primeira tentativa.`,hint:'Escolha T568A ou T568B e veja a ordem dos fios!'},
+   sim:{ok:'Cabo RJ45 montado e crimpado ✓',err:'Erro de cabeamento — sequência incorreta no RJ45'}},
+  {id:2,cls:'l2',color:'#ff5533',emoji:'🔗',name:'Enlace de Dados',short:'Enlace',
+   intro:{text:`A Camada de Enlace organiza bits em quadros (frames) e garante a entrega correta entre dispositivos diretamente conectados na mesma rede local.\n\nAqui nasce o endereço MAC — o "RG" da placa de rede, único no mundo (normalmente uma sequência de 12 dígitos hexadecimais). Para facilitar, vamos usar etiquetas curtas no lugar do endereço completo.\n\nQuem decide para qual porta cada quadro vai é o switch.`,analogy:{icon:'🏢',text:`O switch funciona como o porteiro de um prédio com 4 apartamentos. No início, ele nem sabe quem mora em cada porta! Quando chega uma encomenda para um morador desconhecido, ele precisa avisar o prédio inteiro (broadcast) até descobrir quem é — e só então anota no caderninho (a tabela CAM). Da próxima vez que chegar encomenda para esse mesmo morador, ele já sabe a porta e entrega direto, sem precisar avisar todo mundo de novo.`}},
+   challenge:{type:'switch',title:'Ajude o porteiro a entregar as encomendas!',instruction:`Cada encomenda chega com um endereço de destino. Se o porteiro <strong>ainda não conhece</strong> esse endereço (as portas mostram "??:??"), clique em <strong>📢 Fazer Broadcast</strong> para descobrir quem é. Se ele <strong>já conhece</strong> (está no caderno), <strong>clique direto na porta certa</strong> — fazer broadcast de novo seria desperdício!`,hint:'Olhe o caderno: o endereço da encomenda já está anotado ali?'},
+   sim:{ok:'Porteiro entregou a encomenda no apartamento certo ✓',err:'Encomenda entregue na porta errada — quadro perdido'}},
+  {id:3,cls:'l3',color:'#ffaa00',emoji:'🌐',name:'Rede',short:'Rede',
+   intro:{text:`A Camada de Rede é responsável pelo endereçamento lógico e roteamento entre redes diferentes.\n\nAqui mora o protocolo IP. Um endereço IP tem duas partes: a rede e o host.`,analogy:{icon:'🗺️',text:`O IP é o CEP + número da casa. O roteador é o GPS que calcula o caminho de cada pacote.`}},
+   challenge:{type:'ip',title:'Configure o endereço IP!',instruction:`Configure o IP para a rede <strong>192.168.1.0/24</strong>.`,fields:[{id:'ip',label:'Endereço IP',type:'text',placeholder:'ex: 192.168.1.X',validate:v=>/^192\.168\.1\.([1-9]|[1-9]\d|1\d\d|2[0-4]\d|25[0-4])$/.test(v.trim()),hint:'.0 é rede e .255 é broadcast'},{id:'mask',label:'Máscara Sub-rede',type:'select',options:['255.255.255.0','255.255.0.0','255.0.0.0','0.0.0.0'],correct:'255.255.255.0',hint:'/24 = 255.255.255.0'},{id:'gateway',label:'Gateway Padrão',type:'text',placeholder:'ex: 192.168.1.1',validate:v=>/^192\.168\.1\.(1|254)$/.test(v.trim()),hint:'Geralmente .1 ou .254'}],hint:'IP .0 = rede, .255 = broadcast. Nem um nem outro pode ser de um host!'},
+   sim:{ok:'Pacote roteado ao destino correto ✓',err:'Erro de roteamento — IP inválido'}},
+  {id:4,cls:'l4',color:'#22dd66',emoji:'🚛',name:'Transporte',short:'Transporte',
+   intro:{text:`A Camada de Transporte garante entrega confiável ou rápida — dependendo do protocolo.\n\nTCP verifica se tudo chegou. UDP só manda.`,analogy:{icon:'📦',text:`TCP é entrega com rastreamento. UDP é panfleto jogado pela janela.`}},
+   challenge:{type:'choice',title:'TCP ou UDP?',instruction:`Escolha <strong>a resposta mais correta e completa</strong>.`,question:'Uma chamada de vídeo ao vivo — qual protocolo é mais adequado e por quê?',options:[{id:'a',text:'TCP — garante que cada frame chegue sem erros',ok:false,explain:'O TCP re-envia pacotes, causando atrasos inaceitáveis ao vivo.'},{id:'b',text:'UDP — velocidade importa mais; um frame perdido é imperceptível',ok:true,explain:'Exato! Em tempo real, melhor perder um frame do que travar.'},{id:'c',text:'TCP — vídeo é importante demais para perder dados',ok:false,explain:'A importância não é o critério. O atraso tornaria a chamada impossível.'},{id:'d',text:'UDP — porque UDP é sempre mais rápido em qualquer situação',ok:false,explain:'Quase! Mas o motivo está errado — UDP é melhor aqui pelo tempo real.'}],hint:'Você prefere uma chamada que trava ou uma que pula um frame mas flui?'},
+   sim:{ok:'Segmento entregue com confirmação ✓',err:'Timeout — pacote perdido sem retransmissão'}},
+  {id:5,cls:'l5',color:'#1a88ff',emoji:'🤝',name:'Sessão',short:'Sessão',
+   intro:{text:`A Camada de Sessão gerencia o diálogo entre aplicações — ela abre, mantém e encerra conexões.\n\nComo um telefonema: alguém liga, conversam, alguém desliga.`,analogy:{icon:'📞',text:`"Posso falar?", "sim, pode", "terminei, sua vez". A sessão garante que os dois lados saibam quando falar e quando ouvir.`}},
+   challenge:{type:'sequence',title:'Ordene o fluxo de sessão!',instruction:`<strong>Arraste os itens</strong> para a sequência correta.`,items:[{id:'s1',text:'🤝 Handshake — as partes concordam em se comunicar',order:1},{id:'s2',text:'🔐 Autenticação — verificação de identidade',order:2},{id:'s3',text:'💬 Troca de dados — comunicação acontece',order:3},{id:'s4',text:'💾 Checkpoint — ponto de retomada salvo',order:4},{id:'s5',text:'👋 Encerramento — sessão finalizada',order:5}],hint:'O que vem primeiro, o "alô" ou a despedida?'},
+   sim:{ok:'Sessão estabelecida e encerrada corretamente ✓',err:'Sessão abortada — sem handshake de fechamento'}},
+  {id:6,cls:'l6',color:'#9988ff',emoji:'🎨',name:'Apresentação',short:'Apresentação',
+   intro:{text:`A Camada de Apresentação é o tradutor universal da rede. Ela cuida de: tradução de formato, compressão e criptografia.`,analogy:{icon:'🌍',text:`Como traduzir uma carta em japonês antes de entender — e ainda colocar num envelope lacrado.`}},
+   challenge:{type:'toggle',title:'Configure o pipeline de dados!',instruction:`Enviando uma <strong>imagem médica sigilosa</strong>. Ative ou desative cada processo.`,items:[{id:'t1',label:'Compressão de dados',note:'Reduz o tamanho do arquivo',ok:true,explain:'Correto!'},{id:'t2',label:'Criptografia TLS',note:'Protege durante envio',ok:true,explain:'Correto! Dados médicos precisam de criptografia.'},{id:'t3',label:'Conversão para JPEG',note:'Formato universal',ok:true,explain:'Correto!'},{id:'t4',label:'Desabilitar verificação SSL',note:'Remove checagem de certificados',ok:false,explain:'Errado! Expõe dados sigilosos.'},{id:'t5',label:'Codificação Base64',note:'Converte binário em texto',ok:false,explain:'Não necessário aqui.'}],hint:'O que protege dados médicos sensíveis? O que atrapalha?'},
+   sim:{ok:'Dados criptografados e formatados ✓',err:'Falha — formato incompatível ou sem criptografia'}},
+  {id:7,cls:'l7',color:'#ff66aa',emoji:'💻',name:'Aplicação',short:'Aplicação',
+   intro:{text:`A Camada de Aplicação é onde os protocolos conversam com os programas.\n\nHTTP, SMTP, DNS, SSH, FTP — cada um tem um propósito específico.`,analogy:{icon:'📱',text:`É o atendente do guichê — a pessoa real que fala com você. Todo o sistema trabalhou nos bastidores, mas é aqui que a conversa acontece.`}},
+   challenge:{type:'wire',title:'Conecte protocolo ao serviço!',instruction:`<strong>Clique em um protocolo</strong> e depois no <strong>serviço correspondente</strong>.`,left:[{id:'http',label:'HTTP / HTTPS'},{id:'smtp',label:'SMTP'},{id:'dns',label:'DNS'},{id:'ssh',label:'SSH'},{id:'ftp',label:'FTP'}],right:[{id:'web',label:'🌐 Navegação em sites'},{id:'email',label:'📧 Envio de e-mails'},{id:'names',label:'📖 Nomes para IPs'},{id:'terminal',label:'💻 Acesso remoto'},{id:'files',label:'📁 Transferência de arquivos'}],pairs:{http:'web',smtp:'email',dns:'names',ssh:'terminal',ftp:'files'},hint:'HTTP é a língua da web, SMTP para e-mails, DNS é a lista telefônica da internet!'},
+   sim:{ok:'HTTP 200 OK — comunicação completa ✓',err:'Protocolo errado — serviço não reconhece a requisição'}},
+];
+
+const SIM_SCENARIOS=[
+  {weight:40,errors:[],msg:'Rede funcionando perfeitamente!'},
+  {weight:10,errors:[1],msg:'Interferência no sinal físico.'},
+  {weight:15,errors:[3],msg:'IP de destino inalcançável.'},
+  {weight:15,errors:[4],msg:'Timeout de conexão — porta bloqueada.'},
+  {weight:10,errors:[6],msg:'Certificado inválido ou expirado.'},
+  {weight:10,errors:[7],msg:'Erro 404 — recurso não encontrado.'},
+];
+function pickScenario(ml){
+  if(ml.length>0&&Math.random()<0.6){const idx=ml[Math.floor(Math.random()*ml.length)];const sc=SIM_SCENARIOS.find(s=>s.errors.includes(idx+1));if(sc)return sc;}
+  const total=SIM_SCENARIOS.reduce((s,sc)=>s+sc.weight,0);let r=Math.random()*total;
+  for(const sc of SIM_SCENARIOS){r-=sc.weight;if(r<=0)return sc;}return SIM_SCENARIOS[0];
+}
+
+let G={};
+function resetState(){G={layer:0,phase:'intro',lives:3,score:0,attempts:0,passed:false,mistakeLayers:[],results:[],choiceSelected:null,wireSelected:null,wireSelectedSide:null,wireMatched:{},sortOrder:[],rj45HintUsedThisLife:false,rj45CrimpTried:false};}
+const $=id=>document.getElementById(id);
+function showScreen(n){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$('screen-'+n).classList.add('active');}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function buildSidebar(){
+  $('osi-stack').innerHTML=LAYERS.map(l=>`<div class="sport" id="sport-${l.id}"><span class="sport-led" id="sled-${l.id}"></span><span class="sport-num">L${l.id}</span><span class="sport-name">${l.emoji} ${l.short}</span><span class="sport-check" id="lcheck-${l.id}"></span></div>`).join('');
+}
+function updateSidebar(){
+  LAYERS.forEach((l,i)=>{
+    const row=$('sport-'+l.id),led=$('sled-'+l.id),chk=$('lcheck-'+l.id);
+    row.classList.remove('active','done','pending');led.classList.remove('active','ok','err');
+    if(i<G.layer){
+      row.classList.add('done');
+      const passed=G.results.find(r=>r.idx===i)?.passed;
+      led.classList.add(passed?'ok':'err');chk.textContent=passed?'✓':'✗';
+    }else if(i===G.layer){
+      row.classList.add('active');led.classList.add('active');chk.textContent='';
+    }else{
+      row.classList.add('pending');chk.textContent='';
+    }
+  });
+  $('lives-row').innerHTML=Array.from({length:3},(_,i)=>`<span>${i<G.lives?'🐧':'💀'}</span>`).join('');
+  const l=LAYERS[G.layer];$('topbar-layer').innerHTML=`Camada <span>${l.emoji} ${l.name}</span>`;
+  $('prog-fill').style.width=(G.layer/LAYERS.length*100)+'%';
+}
+function setTux(p,id='tux-sidebar'){Tux.render(id,p,90);}
+function setBubble(t,id='tux-bubble'){const el=$(id);if(el)el.textContent=t;}
+
+function startGame(){resetState();buildSidebar();showScreen('game');updateSidebar();setTux('idle');setBubble('Vamos começar!');showIntro();}
+
+function showIntro(){
+  G.phase='intro';G.attempts=0;G.passed=false;
+  const l=LAYERS[G.layer];updateSidebar();setTux('think');setBubble(l.challenge.hint);
+  $('gmain').innerHTML=`<div class="phase-wrap">
+    <div class="phase-header">
+      <div class="lbadge">${l.emoji} Camada ${l.id}</div>
+      <div><div class="phase-title">${l.intro.text.split('\n')[0].slice(0,42)}...</div><div class="phase-sub">${l.name} — Leia antes do desafio</div></div>
+    </div>
+    <div class="intro-card">${l.intro.text.split('\n\n').map(p=>`<p>${p.trim()}</p>`).join('')}</div>
+    <div class="analogy-box"><div class="analogy-icon">${l.intro.analogy.icon}</div><div class="analogy-body"><strong>Analogia:</strong> ${l.intro.analogy.text}</div></div>
+    <div class="row mt-auto" style="padding-top:.5rem">
+      <div style="font-size:.72rem;color:var(--v2-text-dimmer);font-weight:600;font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase">Leia com atenção!</div>
+      <div class="ml-auto"><button class="gbtn gbtn-green" onclick="showChallenge()">Pronto! →</button></div>
+    </div>
+  </div>`;
+}
+
+function showChallenge(){
+  G.phase='challenge';const l=LAYERS[G.layer],ch=l.challenge;
+  setTux('idle');setBubble('Você consegue!');
+  const isRj45=ch.type==='rj45';
+  const noSubmitBtn=isRj45||ch.type==='switch';
+  $('gmain').innerHTML=`<div class="phase-wrap">
+    <div class="phase-header">
+      <div class="lbadge">${l.emoji} Desafio L${l.id}</div>
+      <div><div class="phase-title">${ch.title}</div><div class="phase-sub">${l.name}</div></div>
+    </div>
+    <div class="challenge-wrap">
+      <div class="ch-instruction">${ch.instruction}</div>
+      <div id="ch-widget"></div>
+      <div id="rj45-hint-area"></div>
+      <div class="feedback" id="feedback"><span id="fb-icon"></span><span id="fb-txt"></span></div>
+      <div class="ch-actions">
+        <button class="gbtn gbtn-gray gbtn-sm" id="btn-hint" onclick="showHint()" ${isRj45?'disabled':''}>💡 Dica</button>
+        ${!noSubmitBtn?`<button class="gbtn gbtn-blue" id="btn-submit" onclick="submitChallenge()">Confirmar →</button>`:''}
+      </div>
+    </div>
+  </div>`;
+  buildWidget(ch);
+}
+
+function buildWidget(ch){
+  const w=$('ch-widget');if(!w)return;
+  if(ch.type==='rj45')       buildRJ45(w);
+  else if(ch.type==='switch')  buildSwitch(w);
+  else if(ch.type==='choice')  buildChoice(ch,w);
+  else if(ch.type==='ip')      buildIP(ch,w);
+  else if(ch.type==='sequence')buildSeq(ch,w);
+  else if(ch.type==='toggle')  buildToggle(ch,w);
+  else if(ch.type==='wire')    buildWire(ch,w);
+}
+
+// ─── RJ45 integration ───────────────────────────────────
+function buildRJ45(container){
+  // Show standard selector first
+  container.innerHTML = buildStdSelector();
+}
+
+function buildStdSelector() {
+  const stds = {
+    'T568B': {
+      use: 'Mais comum no Brasil e EUA. Usado em redes domésticas e corporativas.',
+    },
+    'T568A': {
+      use: 'Padrão alternativo. Exigido em instalações governamentais americanas (TIA-568-A).',
+    },
+  };
+
+  // Generic icon — same for both, sem revelar a ordem
+  const cardIconHTML = () => `
+    <div style="font-size:2rem;line-height:1">🔌</div>`;
+
+  return `<div class="std-selector">
+    <div class="std-selector-title">🔌 Escolha o padrão de cabeamento</div>
+    <div class="std-selector-sub">
+      Os dois padrões usam os mesmos 8 fios, mas em ordens diferentes.<br>
+      Escolha um e monte o cabo corretamente!
+    </div>
+    <div class="std-cards">
+      ${Object.entries(stds).map(([key, val]) => `
+        <div class="std-card" id="stdcard-${key}" onclick="selectStandard('${key}')">
+          <div class="std-card-name">${key}</div>
+          ${cardIconHTML()}
+          <div class="std-card-use">${val.use}</div>
+        </div>
+      `).join('')}
+    </div>
+    <button class="gbtn gbtn-purple" id="btn-std-confirm" onclick="confirmStandard()" disabled>
+      Confirmar padrão →
+    </button>
+  </div>`;
+}
+
+let _pendingStandard = null;
+function selectStandard(std) {
+  _pendingStandard = std;
+  document.querySelectorAll('.std-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('stdcard-' + std)?.classList.add('selected');
+  const btn = document.getElementById('btn-std-confirm');
+  if (btn) btn.disabled = false;
+}
+
+function confirmStandard() {
+  if (!_pendingStandard) return;
+  RJ45Challenge.setStandard(_pendingStandard);
+
+  // Update instruction text dynamically
+  const instrEl = document.querySelector('.ch-instruction');
+  if (instrEl) {
+    const hints = {
+      'T568B': 'Branco-Laranja · Laranja · Branco-Verde · Azul · Branco-Azul · Verde · Branco-Marrom · Marrom',
+      'T568A': 'Branco-Verde · Verde · Branco-Laranja · Azul · Branco-Azul · Laranja · Branco-Marrom · Marrom',
+    };
+    instrEl.innerHTML = `Arraste os fios para os slots do conector RJ45 na ordem correta da norma <strong>${_pendingStandard}</strong>. Depois, use o <strong>Crimper</strong> para fixar. A dica só está disponível após a primeira tentativa.`;
+    // Update the tux hint too
+    setBubble(hints[_pendingStandard]);
+  }
+
+  const widget = document.getElementById('ch-widget');
+  if (!widget) return;
+
+  RJ45Challenge.reset();
+  RJ45Challenge.render(widget);
+
+  widget.addEventListener('rj45-success',()=>{
+    G.passed=true;
+    showFeedback(true,'Cabo crimpado com sucesso! Conexão estabelecida! 🎉');
+    setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');
+    setBubble('INCRÍVEL! Cabo montado perfeitamente! 🎉');
+    const actions=document.querySelector('.ch-actions');
+    if(actions && !actions.querySelector('.btn-advance')){
+      const btn=document.createElement('button');
+      btn.className='gbtn gbtn-green btn-advance';
+      btn.textContent='Próxima camada →';
+      btn.onclick=advanceLayer;
+      actions.appendChild(btn);
+    }
+  });
+
+  widget.addEventListener('rj45-fail',()=>{
+    G.attempts++;
+    G.lives=Math.max(0,G.lives-1);
+    if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+    showFeedback(false,'Alguns fios estão na posição errada. Os slots mostram onde errou — tente novamente!');
+    setTux('sad');Tux.shake('tux-sidebar');
+    setBubble('Quase! Veja os slots e tente de novo.');
+    updateSidebar();
+    G.rj45CrimpTried=true;
+    G.rj45HintUsedThisLife=false;
+    const hintBtn=$('btn-hint');if(hintBtn){hintBtn.disabled=false;}
+    if(G.lives<=0)setTimeout(advanceLayer,1600);
+  });
+
+  widget.addEventListener('rj45-msg',e=>{
+    showFeedback(false,e.detail);
+  });
+}
+
+// ─── Switch (Camada 2 — portaria) integration ────────────
+function buildSwitch(container){
+  SwitchChallenge.reset();
+
+  // listeners are attached BEFORE render() so the very first
+  // broadcast message (fired synchronously on round 1) isn't missed
+  container.addEventListener('switch-msg', e=>{
+    setBubble(e.detail);
+  });
+
+  container.addEventListener('switch-correct', e=>{
+    if(!e.detail.final){
+      const msg=e.detail.viaBroadcast
+        ? 'Broadcast certo! O porteiro aprendeu esse endereço e já anotou no caderno 📓✅'
+        : 'Entrega direta correta! O porteiro já conhecia esse endereço 📬✅';
+      showFeedback(true,msg);
+      setTux('happy');Tux.pop('tux-sidebar');
+    }
+  });
+
+  container.addEventListener('switch-wrong', e=>{
+    G.attempts++;
+    G.lives=Math.max(0,G.lives-1);
+    if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+    let msg='Tente novamente!';
+    if(e.detail.reason==='needs-broadcast')
+      msg=`O porteiro ainda não conhece ${e.detail.target}! Ele não pode chutar uma porta — primeiro precisa fazer o Broadcast.`;
+    else if(e.detail.reason==='wrong-door')
+      msg=`Essa porta é de outro apartamento! A encomenda era para ${e.detail.target}.`;
+    else if(e.detail.reason==='unnecessary-broadcast')
+      msg=`Isso até funcionaria, mas seria desperdício de banda da rede! ${e.detail.target} já está no caderno — entregue direto na porta certa.`;
+    showFeedback(false,msg);
+    setTux('sad');Tux.shake('tux-sidebar');
+    setBubble('Pense: o porteiro já conhece esse endereço ou não?');
+    updateSidebar();
+    if(G.lives<=0)setTimeout(advanceLayer,1600);
+  });
+
+  container.addEventListener('switch-success', ()=>{
+    G.passed=true;
+    showFeedback(true,'Todas as encomendas entregues! O porteiro aprendeu a rede toda — caderno completo! 🎉');
+    setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');
+    setBubble('PERFEITO! Caderno completo! 🎉');
+    const actions=document.querySelector('.ch-actions');
+    if(actions && !actions.querySelector('.btn-advance')){
+      const btn=document.createElement('button');
+      btn.className='gbtn gbtn-green btn-advance';
+      btn.textContent='Próxima camada →';
+      btn.onclick=advanceLayer;
+      actions.appendChild(btn);
+    }
+  });
+
+  SwitchChallenge.render(container);
+}
+
+function showHint(){
+  const l=LAYERS[G.layer],ch=l.challenge;
+  if(ch.type==='rj45'){
+    if(!G.rj45CrimpTried){setBubble('Tente crimpar primeiro!');return;}
+    if(G.rj45HintUsedThisLife){setBubble('Você já usou a dica desta vida!');return;}
+    const hint=RJ45Challenge.getHint();
+    if(!hint){setBubble('Parece que está tudo certo — tente crimpar!');return;}
+    G.rj45HintUsedThisLife=true;
+    // disable hint btn until next crimp
+    const hintBtn=$('btn-hint');if(hintBtn)hintBtn.disabled=true;
+    // show hint panel
+    const area=$('rj45-hint-area');
+    if(area){
+      const aStripe=hint.actualStripe?`<span class="hint-swatch-stripe"></span>`:'';
+      const eStripe=hint.expectedStripe?`<span class="hint-swatch-stripe"></span>`:'';
+      area.innerHTML=`<div class="rj45-hint-panel">
+        💡 <span class="hint-slot">Slot ${hint.slot}</span> —
+        estava: <span class="hint-wire">
+          <span class="hint-swatch" style="background:${hint.actualColor}">${aStripe}</span>
+          ${hint.actual}
+        </span>
+        · deveria ser: <span class="hint-wire">
+          <span class="hint-swatch" style="background:${hint.expectedColor}">${eStripe}</span>
+          ${hint.expected}
+        </span>
+      </div>`;
+    }
+    setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
+  } else if(ch.type==='switch'){
+    SwitchChallenge.hintGlow();
+    setBubble('Olhe o caderno: o endereço já está anotado? Se não, é Broadcast. Se sim, é a porta certa!');
+    setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
+  } else {
+    setBubble(l.challenge.hint);
+    setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
+  }
+}
+
+// ─── Other widgets ───────────────────────────────────────
+function buildChoice(ch,w){
+  G.choiceSelected=null;
+  w.innerHTML=`<div style="font-weight:800;margin-bottom:.8rem;font-size:.9rem">${ch.question}</div><div class="choices">${ch.options.map(o=>`<button class="cbtn" id="cb-${o.id}" onclick="selectChoice('${o.id}')" type="button"><strong>${o.id.toUpperCase()})</strong> ${o.text}</button>`).join('')}</div>`;
+}
+function selectChoice(id){document.querySelectorAll('.cbtn').forEach(b=>b.classList.remove('sel'));$('cb-'+id)?.classList.add('sel');G.choiceSelected=id;}
+function validateChoice(ch){const opt=ch.options.find(o=>o.id===G.choiceSelected);return{passed:opt?.ok===true,explain:opt?.explain||''};}
+
+function buildIP(ch,w){w.innerHTML=`<div class="ip-fields">${ch.fields.map(f=>`<div class="iprow"><label>${f.label}</label>${f.type==='select'?`<select id="ipf-${f.id}">${f.options.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`:`<input type="text" id="ipf-${f.id}" placeholder="${f.placeholder||''}">`}<span class="ip-hint">${f.hint}</span></div>`).join('')}</div>`;}
+function validateIP(ch){let ok=true;ch.fields.forEach(f=>{const el=$('ipf-'+f.id);if(!el)return;const v=f.type==='select'?el.value===f.correct:f.validate(el.value);if(f.type!=='select'){el.classList.toggle('ok',v);el.classList.toggle('err',!v);}if(!v)ok=false;});return{passed:ok};}
+
+let _sortDrag=null;
+function buildSeq(ch,w){const s=[...ch.items].sort(()=>Math.random()-.5);G.sortOrder=s.map(i=>i.id);w.innerHTML=`<div class="sort-list" id="sort-list">${s.map(it=>`<div class="sitem" id="si-${it.id}" draggable="true" ondragstart="_sDragStart(event,'${it.id}')" ondragover="_sDragOver(event,'${it.id}')" ondrop="_sDrop(event,'${it.id}')"><span class="shandle">⠿</span><span>${it.text}</span></div>`).join('')}</div>`;}
+function _sDragStart(e,id){_sortDrag=id;}
+function _sDragOver(e,id){e.preventDefault();$('si-'+id)?.classList.add('drag-over');}
+function _sDrop(e,tid){e.preventDefault();$('si-'+tid)?.classList.remove('drag-over');if(!_sortDrag||_sortDrag===tid)return;const list=$('sort-list');list.insertBefore($('si-'+_sortDrag),$('si-'+tid));G.sortOrder=[...$('sort-list').querySelectorAll('.sitem')].map(el=>el.id.replace('si-',''));_sortDrag=null;}
+function validateSeq(ch){const c=ch.items.slice().sort((a,b)=>a.order-b.order).map(i=>i.id);return{passed:G.sortOrder.join(',')===c.join(',')};}
+
+function buildToggle(ch,w){w.innerHTML=`<div class="toggle-list">${ch.items.map(it=>`<div class="titem"><div class="titem-info"><div class="titem-label">${it.label}</div><div class="titem-note">${it.note}</div></div><label class="tswitch"><input type="checkbox" id="tog-${it.id}"><span class="tslider"></span></label></div>`).join('')}</div>`;}
+function validateToggle(ch){let ok=0;ch.items.forEach(it=>{const el=$('tog-'+it.id);if(el&&el.checked===it.ok)ok++;});return{passed:ok===ch.items.length,score:ok,total:ch.items.length};}
+
+function buildWire(ch,w){G.wireSelected=null;G.wireSelectedSide=null;G.wireMatched={};w.innerHTML=`<div class="wire-game"><div class="wire-col">${ch.left.map(n=>`<div class="wnode" id="wl-${n.id}" onclick="wireClick('left','${n.id}')">${n.label}</div>`).join('')}</div><div class="wire-mid">↔</div><div class="wire-col">${ch.right.map(n=>`<div class="wnode" id="wr-${n.id}" onclick="wireClick('right','${n.id}')">${n.label}</div>`).join('')}</div></div>`;}
+function wireClick(side,id){const ch=LAYERS[G.layer].challenge,pre=side==='left'?'wl-':'wr-',el=$(pre+id);if(el?.classList.contains('matched'))return;if(!G.wireSelected){G.wireSelected=id;G.wireSelectedSide=side;el?.classList.add('sel');}else{if(G.wireSelectedSide===side){const op=side==='left'?'wl-':'wr-';$(op+G.wireSelected)?.classList.remove('sel');G.wireSelected=id;el?.classList.add('sel');return;}const lid=side==='left'?id:G.wireSelected,rid=side==='right'?id:G.wireSelected;$('wl-'+lid)?.classList.remove('sel');$('wr-'+rid)?.classList.remove('sel');const ok=ch.pairs[lid]===rid;if(ok){$('wl-'+lid)?.classList.add('matched');$('wr-'+rid)?.classList.add('matched');G.wireMatched[lid]=rid;}else{$('wl-'+lid)?.classList.add('bad');$('wr-'+rid)?.classList.add('bad');setTimeout(()=>{$('wl-'+lid)?.classList.remove('bad');$('wr-'+rid)?.classList.remove('bad');},500);}G.wireSelected=null;G.wireSelectedSide=null;}}
+function validateWire(ch){const t=Object.keys(ch.pairs).length,m=Object.keys(G.wireMatched).length;return{passed:m===t,score:m,total:t};}
+
+function submitChallenge(){
+  const l=LAYERS[G.layer],ch=l.challenge;
+  if(ch.type==='rj45'||ch.type==='switch')return; // handled by events
+  let res={passed:false};
+  if(ch.type==='choice')res=validateChoice(ch);
+  else if(ch.type==='ip')res=validateIP(ch);
+  else if(ch.type==='sequence')res=validateSeq(ch);
+  else if(ch.type==='toggle')res=validateToggle(ch);
+  else if(ch.type==='wire')res=validateWire(ch);
+  G.attempts++;
+  if(res.passed){
+    G.passed=true;
+    showFeedback(true,res.explain||'Correto! 🎉');
+    setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');setBubble('INCRÍVEL! 🎉');
+    const btn=$('btn-submit');if(btn){btn.textContent='Próxima camada →';btn.onclick=advanceLayer;btn.className='gbtn gbtn-green';}
+  }else{
+    G.lives=Math.max(0,G.lives-1);if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+    const msg=res.explain||wrongMsg(ch.type,res);showFeedback(false,msg);
+    setTux('sad');Tux.shake('tux-sidebar');setBubble('Quase! Tente de novo.');updateSidebar();
+    if(G.lives<=0)setTimeout(advanceLayer,1600);
+  }
+}
+
+function wrongMsg(t,r){
+  if(t==='choice')return'Resposta incorreta. Leia as opções com cuidado.';
+  if(t==='ip')return'Um ou mais campos com erro.';
+  if(t==='sequence')return'Ordem incorreta.';
+  if(t==='toggle')return`${r.score||0} de ${r.total} corretos.`;
+  if(t==='wire')return`${r.score||0} de ${r.total} pares conectados.`;
+  return'Tente novamente!';
+}
+
+function showFeedback(ok,msg){const fb=$('feedback');if(!fb)return;fb.className='feedback show '+(ok?'ok':'fail');$('fb-icon').textContent=ok?'✅':'❌';$('fb-txt').textContent=msg;fb.scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+function advanceLayer(){
+  G.results.push({idx:G.layer,passed:G.passed,attempts:G.attempts});G.lives=3;
+  if(G.layer>=LAYERS.length-1)runSimulation();else{G.layer++;showIntro();}
+}
+
+async function runSimulation(){
+  showScreen('sim');Tux.render('tux-sim','think',110);setBubble('Vamos testar sua rede!','tux-sim-bubble');
+  $('sim-stack').innerHTML=LAYERS.map(l=>`<div class="slayer ${l.cls}" id="sl-${l.id}"><div class="sln">L${l.id}</div><div class="slname">${l.emoji} ${l.name}</div><div class="slstatus" id="ss-${l.id}">aguardando...</div><div class="slicon" id="si-${l.id}">⏳</div></div>`).join('');
+  $('sim-log').innerHTML='<span class="log-info">> Iniciando simulação...\n</span>';
+
+  const realErrorLayerIds = [...new Set(G.mistakeLayers.map(i => LAYERS[i].id))];
+  const log=$('sim-log');
+  const addLog=(m,c)=>{log.innerHTML+=`<span class="${c||''}">${m}\n</span>`;log.scrollTop=9999;};
+  addLog('> Enviando pacote de dados...','log-info');
+
+  // Test every layer one by one — never stop early
+  for(const l of LAYERS){
+    await delay(600);
+    const row=$('sl-'+l.id),ss=$('ss-'+l.id),si=$('si-'+l.id);
+    row.classList.add('processing');ss.textContent='processando...';si.textContent='⚙️';
+    await delay(750);
+    row.classList.remove('processing');
+    if(realErrorLayerIds.includes(l.id)){
+      row.classList.add('err');ss.textContent=l.sim.err;si.textContent='❌';
+      addLog(`> [L${l.id}] ${l.sim.err}`,'log-err');
+    } else {
+      row.classList.add('ok');ss.textContent=l.sim.ok;si.textContent='✅';
+      addLog(`> [L${l.id}] ${l.sim.ok}`,'log-ok');
+    }
+  }
+
+  const hadErrors = realErrorLayerIds.length > 0;
+  if(hadErrors){
+    addLog(`> ⚠️ ${realErrorLayerIds.length} camada(s) com problema.`,'log-err');
+    Tux.render('tux-sim','worried',110);Tux.shake('tux-sim');
+    setBubble(`${realErrorLayerIds.length} camada(s) com falha. Revise!`,'tux-sim-bubble');
+  } else {
+    addLog('> ✨ Todos os pacotes entregues!','log-ok');
+    Tux.render('tux-sim','celebrate',110);Tux.bounce('tux-sim');setBubble('PERFEITO! 🎉','tux-sim-bubble');
+  }
+  setTimeout(()=>showResult(),2200);
+}
+
+function showResult(){
+  showScreen('result');
+  const playerErrIds = [...new Set(G.mistakeLayers.map(i => LAYERS[i].id))];
+  const passedCount  = LAYERS.length - playerErrIds.length;
+  const perfect      = playerErrIds.length === 0;
+
+  // Score: each correctly completed layer = floor(100 / 7) pts, perfect bonus brings to 100
+  const PTS_PER_LAYER = Math.floor(100 / LAYERS.length); // 14
+  const bonus         = perfect ? (100 - PTS_PER_LAYER * LAYERS.length) : 0; // 2 pts bonus if perfect
+  G.score             = passedCount * PTS_PER_LAYER + bonus;
+
+  Tux.render('tux-result', perfect ? 'celebrate' : 'worried', 130);
+  if(perfect) Tux.bounce('tux-result');
+
+  $('result-title').textContent = perfect ? '🏆 Rede Perfeita!' : '⚠️ Rede com Problemas';
+  $('result-pts').textContent   = G.score + ' pts';
+  $('result-msg').textContent   = perfect
+    ? 'Você configurou todas as 7 camadas OSI sem nenhum erro! Tux está muito orgulhoso!'
+    : `Você acertou ${passedCount} de ${LAYERS.length} camadas. Reveja as camadas abaixo e tente novamente!`;
+
+  const errContainer = $('result-errors');
+  if(playerErrIds.length === 0){
+    errContainer.style.display = 'none';
+  } else {
+    errContainer.style.display = 'block';
+    $('result-err-list').innerHTML = playerErrIds.map(lid => {
+      const l = LAYERS.find(x => x.id === lid);
+      return l ? `<div class="err-item"><div class="err-dot"></div><span>${l.emoji} ${l.name}</span></div>` : '';
+    }).join('');
+  }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  $('btn-start').addEventListener('click',startGame);
+  $('btn-restart').addEventListener('click',startGame);
+});
+
+</script>
+</body>
+</html>
