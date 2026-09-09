@@ -174,7 +174,7 @@ function showChallenge(){
   G.phase='challenge';const l=LAYERS[G.layer],ch=l.challenge;
   setTux('idle');setBubble('Você consegue!');
   const isRj45=ch.type==='rj45';
-  const noSubmitBtn=isRj45||ch.type==='switch'||ch.type==='route'||ch.type==='transport';
+  const noSubmitBtn=isRj45||ch.type==='switch'||ch.type==='route'||ch.type==='transport'||ch.type==='app';
   $('gmain').innerHTML=`<div class="phase-wrap">
     <div class="phase-header">
       <div class="lbadge">${l.emoji} Desafio L${l.id}</div>
@@ -200,6 +200,7 @@ function buildWidget(ch){
   else if(ch.type==='switch')  buildSwitch(w);
   else if(ch.type==='route')   buildRoute(w);
   else if(ch.type==='transport')buildTransport(w);
+  else if(ch.type==='app')     buildApp(w);
   else if(ch.type==='choice')  buildChoice(ch,w);
   else if(ch.type==='ip')      buildIP(ch,w);
   else if(ch.type==='sequence')buildSeq(ch,w);
@@ -450,6 +451,116 @@ function buildTransport(container){
   TransportChallenge.render(container);
 }
 
+// ─── Aplicação (Camada 7) — 2 fases: mensagem + navegador ──
+let APP_DONE={msg:false,web:false};
+let APP_PHASE='picker';   // 'picker' | 'msg' | 'web'  (pra dica)
+
+function buildApp(container){
+  APP_DONE={msg:false,web:false};
+  APP_PHASE='picker';
+  renderAppPicker(container);
+}
+
+function renderAppPicker(container){
+  APP_PHASE='picker';
+  MessageChallenge.reset(); WebChallenge.reset();
+  const both=APP_DONE.msg&&APP_DONE.web;
+  setTux(both?'celebrate':'idle');
+  setBubble(both?'As duas partes prontas! Bora testar a rede toda.':'Escolha uma parte pra começar.');
+  const card=(ph,ic,name,sub,locked)=>`
+    <button class="app-card${APP_DONE[ph]?' done':''}${locked?' locked':''}" data-phase="${ph}" ${locked?'disabled':''} type="button">
+      <span class="app-card-ic">${ic}</span>
+      <span class="app-card-name">${name}</span>
+      <span class="app-card-sub">${sub}</span>
+      <span class="app-card-tag">${APP_DONE[ph]?'✓ concluída':locked?'🔒 termine a 1ª primeiro':'jogar →'}</span>
+    </button>`;
+  container.innerHTML=`
+    <div class="app-picker">
+      <div class="app-picker-title">A Camada de Aplicação, na prática, são os apps que você usa. Vamos ver dois:</div>
+      <div class="app-cards">
+        ${card('msg','📱','Mandando uma mensagem','Como o WhatsApp entrega uma mensagem',false)}
+        ${card('web','🌐','Abrindo um site','Como o navegador carrega uma página',!APP_DONE.msg)}
+      </div>
+    </div>`;
+  container.querySelectorAll('.app-card').forEach(c=>c.onclick=()=>{
+    const p=c.dataset.phase;
+    if(c.disabled||APP_DONE[p]) return;
+    startAppPhase(container,p);
+  });
+  if(both){
+    G.passed=true;
+    const actions=document.querySelector('.ch-actions');
+    if(actions && !actions.querySelector('.btn-advance')){
+      const btn=document.createElement('button');
+      btn.className='gbtn gbtn-green btn-advance';
+      btn.textContent='Testar a rede completa →';
+      btn.onclick=advanceLayer;
+      actions.appendChild(btn);
+    }
+  }
+}
+
+function startAppPhase(container,p){
+  G.lives=3;G.attempts=0;updateSidebar();
+  const done=()=>{ APP_DONE[p]=true; setTux('happy');Tux.pop('tux-sidebar'); renderAppPicker(container); };
+  if(p==='msg'){ APP_PHASE='msg'; buildMessage(container,done); }
+  else         { APP_PHASE='web'; buildWeb(container,done); }
+}
+
+// Fase 1 — a mensagem no WhatsApp
+function buildMessage(container,onDone){
+  MessageChallenge.reset();
+  container.addEventListener('message-msg', e=>{ setBubble(e.detail); });
+  container.addEventListener('message-correct', e=>{
+    if(!e.detail.final){
+      showFeedback(true,'Mensagem entregue e lida! ✓✓');
+      setTux('happy');Tux.pop('tux-sidebar');
+      setBubble('Boa! Próxima mensagem.');
+    }
+  });
+  container.addEventListener('message-wrong', e=>{
+    mistake();
+    showFeedback(false,e.detail?.message||'Essa não é a melhor escolha.');
+    setTux('sad');Tux.shake('tux-sidebar');
+    setBubble(e.detail?.hint||'Pensa no caminho: seu celular → servidor → a Bia.');
+    updateSidebar();
+    if(G.lives<=0){ MessageChallenge.reset(); setTimeout(advanceLayer,1600); }
+  });
+  container.addEventListener('message-success', ()=>{
+    showFeedback(true,'Parte 1 completa! Você entendeu como o WhatsApp entrega uma mensagem. ✓✓');
+    setTux('superHappy');Tux.bounce('tux-sidebar');
+    if(onDone) onDone();
+  });
+  MessageChallenge.render(container);
+}
+
+// Fase 2 — abrindo um site no navegador
+function buildWeb(container,onDone){
+  WebChallenge.reset();
+  container.addEventListener('web-msg', e=>{ setBubble(e.detail); });
+  container.addEventListener('web-correct', e=>{
+    if(!e.detail.final){
+      showFeedback(true,'Página carregada! ✓');
+      setTux('happy');Tux.pop('tux-sidebar');
+      setBubble('Boa! Próximo site.');
+    }
+  });
+  container.addEventListener('web-wrong', e=>{
+    mistake();
+    showFeedback(false,e.detail?.message||'Essa não é a melhor escolha.');
+    setTux('sad');Tux.shake('tux-sidebar');
+    setBubble('Pensa: você quer VER a página (GET) ou ENVIAR dados (POST)? E precisa de cadeado?');
+    updateSidebar();
+    if(G.lives<=0){ WebChallenge.reset(); setTimeout(advanceLayer,1600); }
+  });
+  container.addEventListener('web-success', ()=>{
+    showFeedback(true,'Parte 2 completa! Você acompanhou o navegador carregar uma página do zero. 🎉');
+    setTux('superHappy');Tux.bounce('tux-sidebar');
+    if(onDone) onDone();
+  });
+  WebChallenge.render(container);
+}
+
 function showHint(){
   const l=LAYERS[G.layer],ch=l.challenge;
   if(ch.type==='rj45'){
@@ -493,6 +604,17 @@ function showHint(){
     TransportChallenge.hintGlow();
     setBubble('Se um pedaço se perder, dá pra seguir sem ele? Sim → UDP (rápido). Não → TCP (garantido).');
     setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
+  } else if(ch.type==='app'){
+    if(APP_PHASE==='msg'){
+      MessageChallenge.hintGlow();
+      setBubble('A mensagem passa pelo servidor primeiro. Pra achar o servidor na internet, você precisa do endereço — quem dá é o DNS.');
+    } else if(APP_PHASE==='web'){
+      WebChallenge.hintGlow();
+      setBubble('Você quer VER a página (GET) ou ENVIAR dados/senha (POST)? E pra digitar senha, o endereço tem que começar com https:// (cadeado).');
+    } else {
+      setBubble('Comece pela parte do WhatsApp. A do navegador libera quando você terminar essa.');
+    }
+    setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
   } else {
     setBubble(l.challenge.hint);
     setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
@@ -526,7 +648,7 @@ function validateWire(ch){const t=Object.keys(ch.pairs).length,m=Object.keys(G.w
 
 function submitChallenge(){
   const l=LAYERS[G.layer],ch=l.challenge;
-  if(ch.type==='rj45'||ch.type==='switch'||ch.type==='route'||ch.type==='transport')return; // handled by events
+  if(ch.type==='rj45'||ch.type==='switch'||ch.type==='route'||ch.type==='transport'||ch.type==='app')return; // handled by events
   let res={passed:false};
   if(ch.type==='choice')res=validateChoice(ch);
   else if(ch.type==='ip')res=validateIP(ch);
