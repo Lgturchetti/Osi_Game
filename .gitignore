@@ -1,0 +1,18 @@
+# Instruções internas para assistentes de IA (não versionar)
+CLAUDE.md
+.claude/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs e temporários
+*.log
+.cache/
