@@ -10,6 +10,8 @@
 
 <body>
 
+<div class="dev-bar" id="dev-bar" hidden></div>
+
 <div class="screen active" id="screen-intro">
 
   <!-- content -->
@@ -67,11 +69,16 @@
     <button class="btn-v2" id="btn-start">Conectar →</button>
 
   </div>
+
+  <button class="dev-trigger" id="dev-trigger" type="button">dev</button>
 </div>
 
 <div class="screen" id="screen-game">
   <div class="game-topbar">
-    <div class="topbar-logo">OSI 🐧</div>
+    <div class="row" style="gap:.7rem">
+      <button class="topbar-back" id="btn-back" type="button" hidden>◀ Voltar</button>
+      <div class="topbar-logo">OSI 🐧</div>
+    </div>
     <div class="topbar-layer" id="topbar-layer">Camada <span>—</span></div>
     <div class="lives-row" id="lives-row">🐧🐧🐧</div>
   </div>
@@ -119,6 +126,7 @@
 <script src="js/challenges/rj45.js"></script>
 <script src="js/challenges/switch.js"></script>
 <script src="js/challenges/route.js"></script>
+<script src="js/challenges/transport.js"></script>
 <script src="js/layers.js"></script>
 <script src="js/game.js"></script>
 

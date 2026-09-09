@@ -1,11 +1,23 @@
 let G={};
+const DEV_PASS='#PROTEC2026';
+let DEV=false;
 function resetState(){G={layer:0,phase:'intro',lives:3,score:0,attempts:0,passed:false,mistakeLayers:[],results:[],choiceSelected:null,wireSelected:null,wireSelectedSide:null,wireMatched:{},sortOrder:[],rj45HintUsedThisLife:false,rj45CrimpTried:false};}
 const $=id=>document.getElementById(id);
 function showScreen(n){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$('screen-'+n).classList.add('active');}
 function delay(ms){return new Promise(r=>setTimeout(r,ms));}
 
+// Registra um erro do jogador. No modo desenvolvedor não custa vida nem
+// marca a camada como errada — pode errar à vontade.
+function mistake(){
+  G.attempts++;
+  if(DEV)return;
+  G.lives=Math.max(0,G.lives-1);
+  if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+}
+
 function buildSidebar(){
-  $('osi-stack').innerHTML=LAYERS.map(l=>`<div class="sport" id="sport-${l.id}"><span class="sport-led" id="sled-${l.id}"></span><span class="sport-num">L${l.id}</span><span class="sport-name">${l.emoji} ${l.short}</span><span class="sport-check" id="lcheck-${l.id}"></span></div>`).join('');
+  $('osi-stack').innerHTML=LAYERS.map(l=>`<div class="sport${DEV?' devclick':''}" id="sport-${l.id}"><span class="sport-led" id="sled-${l.id}"></span><span class="sport-num">L${l.id}</span><span class="sport-name">${l.emoji} ${l.short}</span><span class="sport-check" id="lcheck-${l.id}"></span></div>`).join('');
+  if(DEV)LAYERS.forEach(l=>{const el=$('sport-'+l.id);if(el)el.onclick=()=>devGoToLayer(l.id-1);});
 }
 function updateSidebar(){
   LAYERS.forEach((l,i)=>{
@@ -21,14 +33,125 @@ function updateSidebar(){
       row.classList.add('pending');chk.textContent='';
     }
   });
-  $('lives-row').innerHTML=Array.from({length:3},(_,i)=>`<span>${i<G.lives?'🐧':'💀'}</span>`).join('');
+  $('lives-row').innerHTML=DEV
+    ?'<span class="dev-lives">DEV · ∞</span>'
+    :Array.from({length:3},(_,i)=>`<span>${i<G.lives?'🐧':'💀'}</span>`).join('');
+  const bb=$('btn-back');if(bb)bb.hidden=G.layer<=0;
   const l=LAYERS[G.layer];$('topbar-layer').innerHTML=`Camada <span>${l.emoji} ${l.name}</span>`;
   $('prog-fill').style.width=(G.layer/LAYERS.length*100)+'%';
 }
 function setTux(p,id='tux-sidebar'){Tux.render(id,p,90);}
 function setBubble(t,id='tux-bubble'){const el=$(id);if(el)el.textContent=t;}
 
-function startGame(){resetState();buildSidebar();showScreen('game');updateSidebar();setTux('idle');setBubble('Vamos começar!');showIntro();}
+function startGame(){resetState();buildSidebar();showScreen('game');updateSidebar();setTux('idle');setBubble('Vamos começar!');showIntro();renderDevBar();}
+
+// ─── Navegação: voltar de camada (jogador) ───────────────
+function goBack(){
+  if(G.layer<=0)return;
+  if(DEV){devGoToLayer(G.layer-1);return;}
+  confirmDialog(
+    `Voltar para a <b>Camada ${G.layer}</b>?<br><br>Você vai ter que passar por ela de novo — o progresso desta camada e das próximas se perde.`,
+    ()=>{
+      G.layer--;
+      G.results=G.results.filter(r=>r.idx<G.layer);
+      G.mistakeLayers=G.mistakeLayers.filter(i=>i<G.layer);
+      G.lives=3;G.passed=false;G.attempts=0;
+      showIntro();
+    },'Voltar');
+}
+
+// ─── Modo desenvolvedor ─────────────────────────────────
+function promptDev(){
+  if(DEV){confirmDialog('Modo desenvolvedor está <b>ativo</b>. Desativar?',disableDev,'Desativar');return;}
+  const ov=document.createElement('div');
+  ov.className='modal-ov';
+  ov.innerHTML=`<div class="modal-box">
+    <div class="modal-msg">Senha de desenvolvedor</div>
+    <input type="password" id="dev-pass" class="dev-pass-input" autocomplete="off" placeholder="senha">
+    <div class="modal-err" id="dev-err" hidden>Senha incorreta.</div>
+    <div class="modal-actions">
+      <button class="gbtn gbtn-gray gbtn-sm" id="modal-no" type="button">Cancelar</button>
+      <button class="gbtn gbtn-yellow gbtn-sm" id="modal-yes" type="button">Entrar</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const inp=ov.querySelector('#dev-pass');inp.focus();
+  const go=()=>{
+    if(inp.value===DEV_PASS){ov.remove();enableDev();}
+    else{ov.querySelector('#dev-err').hidden=false;inp.select();}
+  };
+  ov.querySelector('#modal-no').onclick=()=>ov.remove();
+  ov.querySelector('#modal-yes').onclick=go;
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+}
+
+function enableDev(){
+  DEV=true;
+  try{localStorage.setItem('osi_dev','1');}catch(e){}
+  renderDevBar();
+  if($('screen-game').classList.contains('active')){buildSidebar();updateSidebar();}
+}
+function disableDev(){
+  DEV=false;
+  try{localStorage.removeItem('osi_dev');}catch(e){}
+  renderDevBar();
+  if($('screen-game').classList.contains('active')){buildSidebar();updateSidebar();}
+}
+
+function renderDevBar(){
+  const bar=$('dev-bar');if(!bar)return;
+  document.body.classList.toggle('dev-on',DEV);
+  if(!DEV){bar.hidden=true;bar.innerHTML='';return;}
+  bar.hidden=false;
+  const curL=(G&&typeof G.layer==='number')?G.layer:-1;
+  bar.innerHTML=`
+    <span class="devbar-tag">DEV</span>
+    <button data-act="prev" type="button" title="camada anterior">◀</button>
+    ${LAYERS.map(l=>`<button data-act="go" data-k="${l.id-1}" type="button" class="${l.id-1===curL?'cur':''}">L${l.id}</button>`).join('')}
+    <button data-act="next" type="button" title="próxima camada">▶</button>
+    <span class="devbar-sep"></span>
+    <button data-act="sim" type="button">▶ Simular</button>
+    <button data-act="result" type="button">🏁 Resultado</button>
+    <button data-act="restart" type="button">⟳ Reiniciar</button>
+    <button data-act="off" type="button">✕ dev</button>`;
+  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>devAct(b.dataset.act,b.dataset.k));
+}
+function devAct(act,k){
+  if(act==='prev')return devGoToLayer((G.layer||0)-1);
+  if(act==='next')return devGoToLayer((G.layer||0)+1);
+  if(act==='go')return devGoToLayer(+k);
+  if(act==='sim'){showScreen('game');return runSimulation();}
+  if(act==='result')return showResult();
+  if(act==='restart')return startGame();
+  if(act==='off')return disableDev();
+}
+function devGoToLayer(k){
+  if(!G||typeof G.layer!=='number')resetState();
+  k=Math.max(0,Math.min(LAYERS.length-1,k));
+  G.layer=k;G.lives=3;G.passed=false;G.attempts=0;
+  G.results=G.results.filter(r=>r.idx<k);
+  G.mistakeLayers=G.mistakeLayers.filter(i=>i<k);
+  showScreen('game');
+  buildSidebar();updateSidebar();
+  showChallenge();
+  renderDevBar();
+}
+
+// ─── Diálogo de confirmação ─────────────────────────────
+function confirmDialog(msg,onYes,yesLabel){
+  const ov=document.createElement('div');
+  ov.className='modal-ov';
+  ov.innerHTML=`<div class="modal-box">
+    <div class="modal-msg">${msg}</div>
+    <div class="modal-actions">
+      <button class="gbtn gbtn-gray gbtn-sm" id="modal-no" type="button">Cancelar</button>
+      <button class="gbtn gbtn-yellow gbtn-sm" id="modal-yes" type="button">${yesLabel||'Continuar'}</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#modal-no').onclick=()=>ov.remove();
+  ov.querySelector('#modal-yes').onclick=()=>{ov.remove();onYes&&onYes();};
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+}
 
 function showIntro(){
   G.phase='intro';G.attempts=0;G.passed=false;
@@ -36,7 +159,7 @@ function showIntro(){
   $('gmain').innerHTML=`<div class="phase-wrap">
     <div class="phase-header">
       <div class="lbadge">${l.emoji} Camada ${l.id}</div>
-      <div><div class="phase-title">${l.intro.text.split('\n')[0].slice(0,42)}...</div><div class="phase-sub">${l.name} — Leia antes do desafio</div></div>
+      <div><div class="phase-title">${l.intro.title||l.intro.text.split('\n')[0].slice(0,42)+'…'}</div><div class="phase-sub">${l.name} — Leia antes do desafio</div></div>
     </div>
     <div class="intro-card">${l.intro.text.split('\n\n').map(p=>`<p>${p.trim()}</p>`).join('')}</div>
     <div class="analogy-box"><div class="analogy-icon">${l.intro.analogy.icon}</div><div class="analogy-body"><strong>Analogia:</strong> ${l.intro.analogy.text}</div></div>
@@ -51,7 +174,7 @@ function showChallenge(){
   G.phase='challenge';const l=LAYERS[G.layer],ch=l.challenge;
   setTux('idle');setBubble('Você consegue!');
   const isRj45=ch.type==='rj45';
-  const noSubmitBtn=isRj45||ch.type==='switch'||ch.type==='route';
+  const noSubmitBtn=isRj45||ch.type==='switch'||ch.type==='route'||ch.type==='transport';
   $('gmain').innerHTML=`<div class="phase-wrap">
     <div class="phase-header">
       <div class="lbadge">${l.emoji} Desafio L${l.id}</div>
@@ -76,6 +199,7 @@ function buildWidget(ch){
   if(ch.type==='rj45')       buildRJ45(w);
   else if(ch.type==='switch')  buildSwitch(w);
   else if(ch.type==='route')   buildRoute(w);
+  else if(ch.type==='transport')buildTransport(w);
   else if(ch.type==='choice')  buildChoice(ch,w);
   else if(ch.type==='ip')      buildIP(ch,w);
   else if(ch.type==='sequence')buildSeq(ch,w);
@@ -171,9 +295,7 @@ function confirmStandard() {
   });
 
   widget.addEventListener('rj45-fail',()=>{
-    G.attempts++;
-    G.lives=Math.max(0,G.lives-1);
-    if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+    mistake();
     showFeedback(false,'Alguns fios estão na posição errada. Os slots mostram onde errou — tente novamente!');
     setTux('sad');Tux.shake('tux-sidebar');
     setBubble('Quase! Veja os slots e tente de novo.');
@@ -210,9 +332,7 @@ function buildSwitch(container){
   });
 
   container.addEventListener('switch-wrong', e=>{
-    G.attempts++;
-    G.lives=Math.max(0,G.lives-1);
-    if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+    mistake();
     let msg='Tente novamente!';
     if(e.detail.reason==='needs-broadcast')
       msg=`O porteiro ainda não conhece ${e.detail.target}! Ele não pode chutar uma porta — primeiro precisa fazer o Broadcast.`;
@@ -261,9 +381,7 @@ function buildRoute(container){
   });
 
   container.addEventListener('route-wrong', e=>{
-    G.attempts++;
-    G.lives=Math.max(0,G.lives-1);
-    if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+    mistake();
     showFeedback(false,e.detail?.message||'Tente novamente!');
     setTux('sad');Tux.shake('tux-sidebar');
     setBubble(e.detail?.phase==='ip'?'Revise os campos com atenção.':'Pense: qual rede está mais perto do destino 10.40?');
@@ -287,6 +405,49 @@ function buildRoute(container){
   });
 
   RouteChallenge.render(container);
+}
+
+// ─── Transport (Camada 4 — canal com perda) integration ──
+function buildTransport(container){
+  TransportChallenge.reset();
+
+  container.addEventListener('transport-msg', e=>{ setBubble(e.detail); });
+
+  container.addEventListener('transport-correct', e=>{
+    if(!e.detail.final){
+      showFeedback(true,e.detail.message);
+      setTux('happy');Tux.pop('tux-sidebar');
+      setBubble(e.detail.chosen==='udp'
+        ? 'Boa! Aqui velocidade vale mais que perfeição. 🏃'
+        : 'Boa! Nada se perdeu no caminho. 📦✅');
+    }
+  });
+
+  container.addEventListener('transport-wrong', e=>{
+    mistake();
+    showFeedback(false,e.detail?.message||'Tente novamente!');
+    setTux('sad');Tux.shake('tux-sidebar');
+    setBubble(e.detail?.hint||'Pense: esses dados precisam de integridade ou de tempo real?');
+    updateSidebar();
+    if(G.lives<=0)setTimeout(advanceLayer,1600);
+  });
+
+  container.addEventListener('transport-success', ()=>{
+    G.passed=true;
+    showFeedback(true,'Todas as transmissões entregues do jeito certo! Você entendeu o trade-off do Transporte! 🎉');
+    setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');
+    setBubble('PERFEITO! TCP quando não pode faltar, UDP quando não pode esperar! 🎉');
+    const actions=document.querySelector('.ch-actions');
+    if(actions && !actions.querySelector('.btn-advance')){
+      const btn=document.createElement('button');
+      btn.className='gbtn gbtn-green btn-advance';
+      btn.textContent='Próxima camada →';
+      btn.onclick=advanceLayer;
+      actions.appendChild(btn);
+    }
+  });
+
+  TransportChallenge.render(container);
 }
 
 function showHint(){
@@ -328,6 +489,10 @@ function showHint(){
       : 'Compare a rede de destino de cada rota com 10.40.0.10 — qual chega mais perto?';
     setBubble(msg);
     setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
+  } else if(ch.type==='transport'){
+    TransportChallenge.hintGlow();
+    setBubble('Se um pedaço se perder, dá pra seguir sem ele? Sim → UDP (rápido). Não → TCP (garantido).');
+    setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
   } else {
     setBubble(l.challenge.hint);
     setTux('wink');Tux.pop('tux-sidebar');setTimeout(()=>setTux('idle'),2500);
@@ -361,7 +526,7 @@ function validateWire(ch){const t=Object.keys(ch.pairs).length,m=Object.keys(G.w
 
 function submitChallenge(){
   const l=LAYERS[G.layer],ch=l.challenge;
-  if(ch.type==='rj45'||ch.type==='switch'||ch.type==='route')return; // handled by events
+  if(ch.type==='rj45'||ch.type==='switch'||ch.type==='route'||ch.type==='transport')return; // handled by events
   let res={passed:false};
   if(ch.type==='choice')res=validateChoice(ch);
   else if(ch.type==='ip')res=validateIP(ch);
@@ -375,7 +540,7 @@ function submitChallenge(){
     setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');setBubble('INCRÍVEL! 🎉');
     const btn=$('btn-submit');if(btn){btn.textContent='Próxima camada →';btn.onclick=advanceLayer;btn.className='gbtn gbtn-green';}
   }else{
-    G.lives=Math.max(0,G.lives-1);if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+    if(!DEV){G.lives=Math.max(0,G.lives-1);if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);}
     const msg=res.explain||wrongMsg(ch.type,res);showFeedback(false,msg);
     setTux('sad');Tux.shake('tux-sidebar');setBubble('Quase! Tente de novo.');updateSidebar();
     if(G.lives<=0)setTimeout(advanceLayer,1600);
@@ -471,4 +636,8 @@ function showResult(){
 document.addEventListener('DOMContentLoaded',()=>{
   $('btn-start').addEventListener('click',startGame);
   $('btn-restart').addEventListener('click',startGame);
+  $('dev-trigger')?.addEventListener('click',promptDev);
+  $('btn-back')?.addEventListener('click',goBack);
+  try{ if(localStorage.getItem('osi_dev')==='1') DEV=true; }catch(e){}
+  renderDevBar();
 });
