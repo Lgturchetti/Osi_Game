@@ -185,12 +185,12 @@ const RJ45Challenge = (() => {
     container.innerHTML = `
       <div class="rj45-wrap" id="rj45-wrap">
         <div class="rj45-connector-area">
-          <div class="rj45-label">Clique ou arraste os fios para os slots · clique no conector para remover</div>
+          <div class="rj45-label">Toque (ou arraste) os fios para os slots · toque num fio no conector para remover</div>
           <div id="rj45-svg-wrap">${rj45SVG(slots, slotResults)}</div>
         </div>
         <div class="rj45-bottom">
           <div class="wire-tray">
-            <div class="tray-label">🧰 Fios — clique para encaixar ou arraste para um slot</div>
+            <div class="tray-label">🧰 Fios — toque para encaixar (ou arraste para um slot)</div>
             <div class="tray-wires" id="tray-wires">
               ${shuffled.map(w => `
                 <div class="tray-wire" id="tray-${w.id}" data-wire="${w.id}" draggable="true" title="${w.label}">
@@ -203,9 +203,9 @@ const RJ45Challenge = (() => {
           <div class="toolbox">
             <div class="tray-label">🔧 Ferramentas</div>
             <div class="toolbox-inner">
-              <div class="tool-item" id="crimper-tool" title="Crimper — arraste até o conector para crimpar">
+              <div class="tool-item" id="crimper-tool" title="Crimper — toque (ou arraste até o conector) para crimpar">
                 ${crimperSVG()}
-                <span class="tool-label">Arraste p/ crimpar</span>
+                <span class="tool-label">Toque p/ crimpar</span>
               </div>
             </div>
           </div>
@@ -279,6 +279,9 @@ const RJ45Challenge = (() => {
       draggingId   = null;
       draggingFrom = null;
     });
+
+    // tap-to-crimp (touch / mouse click) — mesma ação do arrastar até o conector
+    crimper.addEventListener('click', () => tryCrimp(container));
 
     // accept crimper drop on the connector area (svgWrap) or the whole rj45-connector-area
     const svgWrap = container.querySelector('#rj45-svg-wrap');

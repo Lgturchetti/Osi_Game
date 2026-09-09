@@ -70,6 +70,8 @@ body{font-family:'Manrope',sans-serif;background:var(--v2-bg);color:var(--v2-tex
 .challenge-wrap::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent);}
 .ch-instruction{background:rgba(255,255,255,0.03);border:1px solid var(--v2-hairline);border-left:3px solid var(--v2-accent);border-radius:4px;padding:.8rem 1rem;font-size:.87rem;color:var(--v2-text-dim);line-height:1.65;}
 .ch-instruction strong{color:var(--v2-text);}
+.ch-instruction-order{display:block;margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--v2-hairline);font-size:.82rem;color:var(--v2-text-dim);}
+.ch-instruction-order strong{color:var(--v2-accent);}
 .feedback{display:none;align-items:center;gap:.85rem;padding:.9rem 1.2rem;border-radius:4px;font-weight:800;font-size:.9rem;letter-spacing:.02em;position:relative;overflow:hidden;}
 .feedback::before{content:'';position:absolute;inset:0;opacity:.06;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.5),rgba(255,255,255,.5) 1px,transparent 1px,transparent 8px);}
 .feedback.show{display:flex;animation:fbPop .25s cubic-bezier(.34,1.56,.64,1);}
@@ -962,3 +964,227 @@ body.dev-on .screen{min-height:calc(100vh - 46px);}
 .web-choice.picked{border-color:var(--v2-success);background:rgba(79,157,105,.12);color:var(--v2-success);opacity:1;}
 .web-choice.hint-glow{animation:hintGlowPulse 1.4s ease-in-out 2;border-color:var(--v2-accent);}
 .web-waiting{font-size:.85rem;font-style:italic;color:var(--v2-text-dim);padding:.5rem 0;animation:sledPulse 1.6s ease-in-out infinite;}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVO — CELULAR E TABLET
+   Base do projeto é desktop; aqui embaixo vem tudo que adapta
+   pra telas menores. Dois cortes principais:
+     ≤ 950px  → layout do jogo vira coluna única (sidebar → faixa)
+     ≤ 600px  → desafios, intro, resultado em modo estreito
+   ═══════════════════════════════════════════════════════════ */
+
+/* setas ▲▼ do widget de sequência (Camada 5) — alternativa ao arrastar,
+   valem em qualquer tela (toque ou mouse) */
+.sitem-txt{flex:1;}
+.sitem-move{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.seq-arrow{
+  width:32px;height:22px;display:flex;align-items:center;justify-content:center;
+  padding:0;line-height:1;font-size:.66rem;cursor:pointer;
+  background:var(--v2-surface2);border:1px solid var(--v2-hairline);border-radius:4px;
+  color:var(--v2-text-dim);transition:border-color .15s,color .15s;
+}
+.seq-arrow:hover{border-color:var(--v2-accent);color:var(--v2-accent);}
+.seq-arrow:active{transform:translateY(1px);}
+
+/* toast do Tux — o mascote "fala" no mobile onde o balão fixo não cabe */
+#tux-toast{
+  position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));
+  transform:translate(-50%,160%);
+  z-index:150;max-width:min(92vw,430px);
+  background:var(--v2-surface);border:1px solid rgba(232,163,61,.4);
+  border-left:3px solid var(--v2-accent);border-radius:8px;
+  padding:.7rem .95rem;font-size:.82rem;font-weight:700;line-height:1.45;
+  color:var(--v2-text);box-shadow:0 14px 44px -14px rgba(0,0,0,.75);
+  opacity:0;pointer-events:none;
+  transition:transform .32s cubic-bezier(.34,1.4,.64,1),opacity .3s;
+}
+#tux-toast.show{transform:translate(-50%,0);opacity:1;}
+body.dev-on #tux-toast{bottom:calc(56px + env(safe-area-inset-bottom));}
+@media (min-width:951px){#tux-toast{display:none;}}
+
+/* ───────── ≤ 950px : jogo em coluna única ───────── */
+@media (max-width:950px){
+  .screen.active{min-height:100vh;min-height:100dvh;}
+
+  .game-body{display:block;overflow:visible;}
+  .gmain{overflow:visible;}
+
+  /* sidebar → faixa horizontal rolável logo abaixo da topbar */
+  .gsidebar{
+    flex-direction:row;align-items:center;gap:.4rem;
+    padding:.5rem .7rem;
+    border-right:none;border-bottom:1px solid var(--v2-hairline);
+    overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .gsidebar::-webkit-scrollbar{display:none;}
+  .osi-stack{flex-direction:row;gap:.35rem;flex:0 0 auto;}
+  .sport{
+    flex-shrink:0;flex-direction:row;gap:.35rem;
+    padding:.32rem .55rem;border-radius:20px;
+    border:1px solid var(--v2-hairline);background:rgba(255,255,255,.02);
+  }
+  .sport.pending{opacity:.5;}
+  .sport-num{width:auto;font-size:.58rem;}
+  .sport-name{display:none;}
+  .sport.active .sport-name{display:inline;font-size:.68rem;white-space:nowrap;}
+  .sport-check{margin-left:.1rem;font-size:.7rem;}
+  .tux-box{display:none;}
+
+  /* simulação em coluna */
+  #screen-sim{padding:1.5rem 1rem;align-items:stretch;justify-content:flex-start;}
+  .sim-grid{grid-template-columns:1fr;gap:1.2rem;}
+  .sim-title{font-size:1.5rem;}
+  .sim-right{align-items:stretch;}
+  .sim-log{min-height:150px;}
+}
+
+/* ───────── ≤ 600px : modo estreito (celular) ───────── */
+@media (max-width:600px){
+  body{font-size:16px;}
+
+  /* topbar enxuta */
+  .game-topbar{padding:.55rem .8rem;gap:.5rem;}
+  .topbar-logo{font-size:1rem;}
+  .topbar-layer{font-size:.58rem;max-width:40vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar-back{padding:.35rem .55rem;font-size:.6rem;}
+  .lives-row{font-size:1rem;}
+
+  /* --- intro --- */
+  #screen-intro{padding:2rem 1rem;}
+  .intro-content{gap:1.3rem;max-width:100%;}
+  .intro-tagline{font-size:.92rem;}
+  .port-cell{padding:.75rem .12rem .7rem;gap:.28rem;}
+  .port-icon{font-size:1rem;}
+  .port-name{font-size:.5rem;}
+  .port-num{font-size:.5rem;}
+  .panel-head{padding:.6rem .8rem;}
+  .panel-head-tag{display:none;}
+  .intro-metrics{grid-template-columns:1fr;}
+  .intro-metric{flex-direction:row;align-items:baseline;justify-content:space-between;gap:.6rem;}
+  .metric-value{font-size:1.4rem;}
+  .btn-v2{width:100%;padding:1rem;text-align:center;justify-content:center;}
+
+  /* --- fase / desafio (genérico) --- */
+  .phase-wrap{padding:1rem .85rem;gap:1.05rem;}
+  .phase-header{gap:.6rem;}
+  .phase-title{font-size:1.28rem;}
+  .phase-sub{font-size:.66rem;}
+  .lbadge{padding:.28rem .6rem;font-size:.6rem;}
+  .challenge-wrap{padding:1rem;gap:1rem;}
+  .intro-card{padding:1rem;font-size:.9rem;line-height:1.7;}
+  .analogy-box{flex-direction:column;gap:.5rem;padding:.9rem 1rem;}
+  .analogy-icon{font-size:1.6rem;}
+  .analogy-body{font-size:.85rem;}
+  .ch-instruction{font-size:.84rem;padding:.7rem .85rem;}
+  .feedback{font-size:.82rem;padding:.8rem .9rem;gap:.6rem;}
+  .ch-actions{flex-wrap:wrap;gap:.5rem;}
+  .ch-actions .gbtn{flex:1 1 auto;min-height:44px;}
+  .gbtn-lg{padding:.95rem 2rem;font-size:1rem;}
+
+  .choices{grid-template-columns:1fr;}
+
+  /* campos de IP empilham (rótulo em cima) */
+  .iprow{flex-direction:column;align-items:stretch;gap:.4rem;padding:.7rem .85rem;}
+  .iprow label{width:auto;}
+  .iprow input,.iprow select{width:100%;flex:none;}
+  .ip-hint{font-size:.66rem;}
+
+  .sitem{gap:.5rem;padding:.6rem .65rem;font-size:.82rem;}
+
+  /* --- Camada 1 · RJ45 --- */
+  .rj45-bottom{grid-template-columns:1fr;}
+  .std-cards{grid-template-columns:1fr;}
+  .std-selector{padding:1rem .25rem;gap:1rem;}
+  .std-selector-sub br{display:none;}
+  #crimper-svg{width:64px;height:auto;}
+  .tray-wire-label{font-size:.5rem;max-width:48px;}
+
+  /* --- Camada 2 · switch / portaria --- */
+  .switch-stage{padding:1.2rem .7rem;gap:1rem;}
+  .switch-building{gap:.55rem;}
+  .switch-door{width:84px;padding:.75rem .35rem;}
+  .switch-door-icon{font-size:1.7rem;}
+  .switch-cam-panel{max-width:none;}
+
+  /* --- Camada 3 · rota --- */
+  .netmap{padding:1.2rem .4rem 1rem;}
+  .hoprow{gap:.1rem;}
+  .hopnode{width:50px;gap:.28rem;}
+  .hopicon{width:36px;height:36px;font-size:1rem;border-radius:8px;}
+  .hoplabel{font-size:.5rem;}
+  .hopnet{display:none;}
+  .hoplink{min-width:4px;margin-top:-13px;}
+  .packet-dest{font-size:.76rem;padding:.55rem .7rem;}
+  .router-panel{padding:.9rem;}
+  .rbtn{padding:.7rem .75rem;gap:.5rem;}
+  .rbtn .r-net{font-size:.78rem;}
+  .rbtn .r-hop{font-size:.7rem;}
+  .route-table-label{font-size:.54rem;}
+
+  /* --- Camada 4 · transporte --- */
+  .tp-modes{grid-template-columns:1fr;}
+  .tp-meters{grid-template-columns:1fr;}
+  .tp-scenario{padding:.75rem .85rem;gap:.6rem;}
+  .tp-scenario-icon{font-size:1.4rem;}
+  .tp-mode-name{font-size:1.05rem;}
+  .tp-channel{padding:.85rem .55rem;gap:.4rem;}
+  .tp-endpoint{font-size:1.4rem;width:30px;}
+  .tp-transmit-btn{width:100%;}
+  .tp-actions{justify-content:stretch;}
+
+  /* --- Camada 7 · mensagem + navegador --- */
+  .msg-scenario,.web-scenario{padding:.75rem .85rem;gap:.6rem;}
+  .msg-sc-icon,.web-sc-icon{font-size:1.4rem;}
+  .msg-phone{max-width:100%;}
+  .msg-path{padding:1.2rem .5rem .9rem;}
+  .msg-path-track{gap:.2rem;}
+  .msg-node{width:52px;}
+  .msg-node-ic{width:38px;height:38px;font-size:1.05rem;}
+  .msg-node-lb{font-size:.54rem;}
+  .msg-send-btn,.web-go-btn{align-self:stretch;width:100%;text-align:center;}
+  .web-page{padding:.85rem;}
+  .web-bar-url{font-size:.72rem;}
+  .app-picker-title{font-size:.88rem;}
+  .app-card{padding:1.3rem 1rem;}
+
+  /* --- resultado --- */
+  #screen-result{padding:2rem 1.1rem;}
+  .result-title{font-size:1.7rem;}
+  .result-pts{font-size:3.4rem;}
+  .result-msg{font-size:.9rem;}
+  .result-errors{padding:1rem;}
+
+  /* --- simulação --- */
+  .slayer{padding:.7rem .8rem;gap:.5rem .7rem;flex-wrap:wrap;row-gap:.15rem;}
+  .sln{order:1;}
+  .slname{order:2;flex:1;font-size:.82rem;}
+  .slicon{order:3;}
+  .slstatus{order:4;flex-basis:100%;font-size:.7rem;padding-left:calc(22px + .7rem);}
+  .sim-log{font-size:.68rem;line-height:1.9;}
+  .sim-sub{font-size:.72rem;margin-bottom:1.2rem;}
+}
+
+/* ───────── ≤ 360px : aparelhos bem estreitos ───────── */
+@media (max-width:380px){
+  .topbar-layer{display:none;}
+}
+@media (max-width:360px){
+  html{font-size:15px;}
+  .phase-wrap{padding:.85rem .65rem;}
+  .challenge-wrap{padding:.85rem;}
+  .hopnode{width:46px;}
+  .hopicon{width:33px;height:33px;}
+  .switch-door{width:78px;}
+  .toolbox{padding:.7rem .5rem;}
+  .tray-wire-label{max-width:44px;}
+}
+
+/* ───────── celular deitado (pouca altura) ───────── */
+@media (orientation:landscape) and (max-height:480px){
+  .screen.active{min-height:auto;}
+  .analogy-box{flex-direction:row;}
+  #screen-intro{padding:1.5rem 1rem;}
+  .intro-content{gap:1rem;}
+  .intro-panel,.intro-metrics{max-width:560px;}
+}

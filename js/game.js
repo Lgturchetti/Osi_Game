@@ -39,9 +39,30 @@ function updateSidebar(){
   const bb=$('btn-back');if(bb)bb.hidden=G.layer<=0;
   const l=LAYERS[G.layer];$('topbar-layer').innerHTML=`Camada <span>${l.emoji} ${l.name}</span>`;
   $('prog-fill').style.width=(G.layer/LAYERS.length*100)+'%';
+  // na faixa horizontal do mobile, mantém a camada atual visível
+  const act=document.querySelector('.gsidebar .sport.active');
+  if(act){const p=act.closest('.gsidebar');
+    if(p&&p.scrollWidth>p.clientWidth+4){
+      const cr=p.getBoundingClientRect(),ar=act.getBoundingClientRect();
+      p.scrollLeft+=(ar.left-cr.left)-(p.clientWidth-ar.width)/2;
+    }}
 }
 function setTux(p,id='tux-sidebar'){Tux.render(id,p,90);}
-function setBubble(t,id='tux-bubble'){const el=$(id);if(el)el.textContent=t;}
+function setBubble(t,id='tux-bubble'){const el=$(id);if(el)el.textContent=t;if(id==='tux-bubble')tuxToast(t);}
+
+// No celular a barra lateral (e o balão do Tux) somem — o Tux "fala" por um
+// toast rápido só nos momentos em que tem algo a dizer.
+let _tuxToastT=null;
+function isMobileLayout(){return !!(window.matchMedia&&window.matchMedia('(max-width:950px)').matches);}
+function tuxToast(t){
+  const tb=$('tux-toast');if(!tb||!t)return;
+  if(!isMobileLayout())return;
+  if(!$('screen-game')||!$('screen-game').classList.contains('active'))return;
+  tb.textContent='🐧 '+t;
+  tb.classList.add('show');
+  clearTimeout(_tuxToastT);
+  _tuxToastT=setTimeout(()=>tb.classList.remove('show'),4500);
+}
 
 function startGame(){resetState();buildSidebar();showScreen('game');updateSidebar();setTux('idle');setBubble('Vamos começar!');showIntro();renderDevBar();}
 
@@ -269,7 +290,7 @@ function confirmStandard() {
       'T568B': 'Branco-Laranja · Laranja · Branco-Verde · Azul · Branco-Azul · Verde · Branco-Marrom · Marrom',
       'T568A': 'Branco-Verde · Verde · Branco-Laranja · Azul · Branco-Azul · Laranja · Branco-Marrom · Marrom',
     };
-    instrEl.innerHTML = `Arraste os fios para os slots do conector RJ45 na ordem correta da norma <strong>${_pendingStandard}</strong>. Depois, use o <strong>Crimper</strong> para fixar. A dica só está disponível após a primeira tentativa.`;
+    instrEl.innerHTML = `Toque nos fios (ou arraste) para posicioná-los nos slots do conector RJ45 na ordem da norma <strong>${_pendingStandard}</strong> e depois toque no <strong>Crimper</strong> para fixar. A dica só está disponível após a primeira tentativa.<br><span class="ch-instruction-order"><strong>Ordem ${_pendingStandard}:</strong> ${hints[_pendingStandard]}</span>`;
     // Update the tux hint too
     setBubble(hints[_pendingStandard]);
   }
@@ -633,7 +654,8 @@ function buildIP(ch,w){w.innerHTML=`<div class="ip-fields">${ch.fields.map(f=>`<
 function validateIP(ch){let ok=true;ch.fields.forEach(f=>{const el=$('ipf-'+f.id);if(!el)return;const v=f.type==='select'?el.value===f.correct:f.validate(el.value);if(f.type!=='select'){el.classList.toggle('ok',v);el.classList.toggle('err',!v);}if(!v)ok=false;});return{passed:ok};}
 
 let _sortDrag=null;
-function buildSeq(ch,w){const s=[...ch.items].sort(()=>Math.random()-.5);G.sortOrder=s.map(i=>i.id);w.innerHTML=`<div class="sort-list" id="sort-list">${s.map(it=>`<div class="sitem" id="si-${it.id}" draggable="true" ondragstart="_sDragStart(event,'${it.id}')" ondragover="_sDragOver(event,'${it.id}')" ondrop="_sDrop(event,'${it.id}')"><span class="shandle">⠿</span><span>${it.text}</span></div>`).join('')}</div>`;}
+function buildSeq(ch,w){const s=[...ch.items].sort(()=>Math.random()-.5);G.sortOrder=s.map(i=>i.id);w.innerHTML=`<div class="sort-list" id="sort-list">${s.map(it=>`<div class="sitem" id="si-${it.id}" draggable="true" ondragstart="_sDragStart(event,'${it.id}')" ondragover="_sDragOver(event,'${it.id}')" ondrop="_sDrop(event,'${it.id}')"><span class="shandle">⠿</span><span class="sitem-txt">${it.text}</span><span class="sitem-move"><button type="button" class="seq-arrow" onclick="_seqMove('${it.id}',-1)" aria-label="mover para cima">▲</button><button type="button" class="seq-arrow" onclick="_seqMove('${it.id}',1)" aria-label="mover para baixo">▼</button></span></div>`).join('')}</div>`;}
+function _seqMove(id,dir){const list=$('sort-list');if(!list)return;const el=$('si-'+id);if(!el)return;if(dir<0&&el.previousElementSibling)list.insertBefore(el,el.previousElementSibling);else if(dir>0&&el.nextElementSibling)list.insertBefore(el.nextElementSibling,el);G.sortOrder=[...list.querySelectorAll('.sitem')].map(x=>x.id.replace('si-',''));}
 function _sDragStart(e,id){_sortDrag=id;}
 function _sDragOver(e,id){e.preventDefault();$('si-'+id)?.classList.add('drag-over');}
 function _sDrop(e,tid){e.preventDefault();$('si-'+tid)?.classList.remove('drag-over');if(!_sortDrag||_sortDrag===tid)return;const list=$('sort-list');list.insertBefore($('si-'+_sortDrag),$('si-'+tid));G.sortOrder=[...$('sort-list').querySelectorAll('.sitem')].map(el=>el.id.replace('si-',''));_sortDrag=null;}
