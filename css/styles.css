@@ -152,6 +152,12 @@ body{font-family:'Manrope',sans-serif;background:var(--v2-bg);color:var(--v2-tex
 .err-item{display:flex;align-items:center;gap:.7rem;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:.87rem;font-weight:600;color:var(--v2-text-dim);}
 .err-item:last-child{border:none;}
 .err-dot{width:10px;height:10px;flex-shrink:0;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);background:var(--v2-danger);}
+.questionnaire-link{display:flex;align-items:center;gap:.85rem;margin:0 0 1.5rem;text-align:left;}
+.questionnaire-qr-link{display:block;width:180px;height:180px;padding:5px;background:#fff;flex:none;}
+.questionnaire-qr-placeholder{display:block;width:100%;height:100%;}
+.questionnaire-copy{display:grid;gap:.25rem;max-width:250px;}
+.questionnaire-copy strong{font-family:'Space Grotesk',sans-serif;color:var(--v2-text);font-size:.95rem;}
+.questionnaire-copy span{color:var(--v2-text-dim);font-size:.78rem;line-height:1.45;}
 .tux-wrap{display:flex;justify-content:center;align-items:flex-end;}
 .row{display:flex;align-items:center;gap:.75rem;}
 .ml-auto{margin-left:auto;}.mt-auto{margin-top:auto;}
