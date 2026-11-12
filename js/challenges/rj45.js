@@ -33,6 +33,8 @@ const RJ45Challenge = (() => {
   let draggingId   = null;
   let draggingFrom = null; // 'tray' | slot index (number)
   let _container   = null;
+  let done         = false; // cabo já crimpado com sucesso — trava tudo
+  let lastFailKey  = null;  // ordem da última crimpagem errada
 
   function shuffle(arr) {
     const a = [...arr];
@@ -319,6 +321,7 @@ const RJ45Challenge = (() => {
   }
 
   function returnSlotToTray(idx, container) {
+    if (done) return;
     const wid = slots[idx];
     if (!wid) return;
     slots[idx]       = null;
@@ -330,6 +333,7 @@ const RJ45Challenge = (() => {
   }
 
   function dropWireToSlot(wid, idx, container) {
+    if (done) return;
     // if slot occupied, return old wire to tray
     if (slots[idx] !== null) {
       showTrayWire(slots[idx], container);
@@ -364,9 +368,18 @@ const RJ45Challenge = (() => {
   // ── Crimp ────────────────────────────────────────────────
 
   function tryCrimp(container) {
+    if (done) return;
     if (slots.some(s => s === null)) {
       container.dispatchEvent(new CustomEvent('rj45-msg',
         { detail: 'Preencha todos os 8 slots antes de crimpar!' }));
+      return;
+    }
+
+    // mesma montagem errada de novo (ex.: clique duplo) não custa outra vida
+    const key = slots.join(',');
+    if (key === lastFailKey) {
+      container.dispatchEvent(new CustomEvent('rj45-msg',
+        { detail: 'Essa montagem já foi testada e está errada — troque algum fio antes de crimpar de novo.' }));
       return;
     }
 
@@ -384,12 +397,14 @@ const RJ45Challenge = (() => {
     flashCrimper(container, allOk);
 
     if (allOk) {
+      done = true;
       animateCrimp(container);
       // SHORT delay so player sees the green flash, then fire success
       setTimeout(() => {
         container.dispatchEvent(new CustomEvent('rj45-success'));
       }, 900);
     } else {
+      lastFailKey = key;
       container.dispatchEvent(new CustomEvent('rj45-fail'));
     }
   }
@@ -451,6 +466,8 @@ const RJ45Challenge = (() => {
     draggingId   = null;
     draggingFrom = null;
     _container   = null;
+    done         = false;
+    lastFailKey  = null;
   }
 
   return { render, reset, getHint, _clickSlot, CORRECT_ORDER, setStandard, STANDARDS };

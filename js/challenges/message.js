@@ -345,6 +345,8 @@ const MessageChallenge = (() => {
       offline:'O servidor não desiste nem fica insistindo — ele guarda e espera.',
       compress:'Foto grande = demora e gasta dados. Dá pra deixar bem menor sem perder quase nada.',
     };
+    const b=_c && _c.querySelector(`.msg-choice[data-key="${key}"][data-opt="${opt}"]`);
+    if(b){ if(b.disabled) return; b.disabled=true; b.classList.add('wrong'); }
     emit('message-wrong',{ reason:key, message:MSG[key+':'+opt]||'Essa não é a melhor escolha. Tente outra.', hint:HINT[key] });
   }
 

@@ -59,12 +59,14 @@ const RouteChallenge = (() => {
   let phase = 'ip';      // 'ip' | 'journey'
   let playerIP = null;
   let J = {};             // estado da jornada: { step, order }
+  let lastFailKey = null; // campos da última tentativa errada de IP
 
   function reset() {
     _container = null;
     phase = 'ip';
     playerIP = null;
     J = {};
+    lastFailKey = null;
   }
 
   function getPhase() { return phase; }
@@ -113,6 +115,10 @@ const RouteChallenge = (() => {
       ipEl?.classList.remove('ok'); ipEl?.classList.add('err');
     }
 
+    // mesmos valores errados de novo (ex.: clique duplo) não custam outra vida
+    const key = [vals.ip, vals.mask, vals.gateway].join('|');
+    if (!ok && key === lastFailKey) return;
+
     if (ok) {
       playerIP = vals.ip;
       const btn = _container.querySelector('#rt-btn-ip');
@@ -124,6 +130,7 @@ const RouteChallenge = (() => {
       }
       _container.dispatchEvent(new CustomEvent('route-ip-ok'));
     } else {
+      lastFailKey = key;
       _container.dispatchEvent(new CustomEvent('route-wrong', {
         detail: { phase: 'ip', message: conflictMsg || 'Um ou mais campos estão incorretos. Veja as dicas de cada campo.' }
       }));
@@ -167,6 +174,7 @@ const RouteChallenge = (() => {
   }
 
   function renderMap() {
+    if (!_container) return;
     const row = _container.querySelector('#rt-hoprow');
     if (!row) return;
     let html = '';
@@ -188,6 +196,7 @@ const RouteChallenge = (() => {
   }
 
   function placePacket(nodeId) {
+    if (!_container) return;
     const packet = _container.querySelector('#rt-packet');
     const node = _container.querySelector('#rt-node-' + nodeId);
     const map = _container.querySelector('.netmap');
@@ -200,6 +209,7 @@ const RouteChallenge = (() => {
   }
 
   function renderRouter() {
+    if (!_container) return;
     const slot = _container.querySelector('#rt-router-panel-slot');
     if (!slot) return;
     const currentId = J.order[J.step];
@@ -265,7 +275,7 @@ const RouteChallenge = (() => {
       setTimeout(() => { renderRouter(); }, 1050);
     } else {
       btn.classList.add('wrong');
-      setTimeout(() => btn.classList.remove('wrong'), 400);
+      btn.disabled = true;               // essa rota já foi descartada — não cobra vida de novo
       const msg = routeData.wrong[targetNode] || 'Essa rota não leva ao HUSM. Tente outra!';
       _container.dispatchEvent(new CustomEvent('route-wrong', { detail: { phase: 'journey', message: msg } }));
     }

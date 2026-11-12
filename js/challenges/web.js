@@ -11,7 +11,7 @@
 const WebChallenge = (() => {
 
   const ROUNDS = [
-    { id:'open', icon:'🏫', title:'Abrir o site da escola',
+    { id:'open', icon:'🏫', title:'Abrir o site do hospital',
       desc:'Você digitou <b>www.husm.ufsm.br</b> e apertou Ir. Vamos ver o navegador trabalhar.',
       url:'www.husm.ufsm.br', https:true, ip:'200.18.42.10' },
     { id:'login', icon:'🔑', title:'Fazer login no portal',
@@ -249,6 +249,8 @@ const WebChallenge = (() => {
       'creds:get'    :'Com GET, usuário e senha iriam na URL: portal.ufsm.br/login?user=joao&senha=1234 — isso fica salvo no histórico do navegador e nos registros do servidor. Senha nunca vai por GET.',
     };
     if(key==='scheme' && opt==='http') setLock('bad');
+    const b=_c && _c.querySelector(`.web-choice[data-key="${key}"][data-opt="${opt}"]`);
+    if(b){ if(b.disabled) return; b.disabled=true; b.classList.add('wrong'); }
     emit('web-wrong',{ reason:key, message:MSG[key+':'+opt]||'Essa não é a melhor escolha.', });
   }
 

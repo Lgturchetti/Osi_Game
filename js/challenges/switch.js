@@ -99,6 +99,7 @@ const SwitchChallenge = (() => {
   }
 
   function updateCamList() {
+    if (!_container) return;
     const list = _container.querySelector('#sw-cam-list');
     if (!list) return;
     list.innerHTML = learned.size === 0
@@ -126,6 +127,7 @@ const SwitchChallenge = (() => {
   }
 
   function advanceOrFinish() {
+    if (!_container) return;
     roundIdx++;
     if (roundIdx >= ROUNDS.length) {
       _container.dispatchEvent(new CustomEvent('switch-success'));
@@ -188,6 +190,7 @@ const SwitchChallenge = (() => {
     _container.dispatchEvent(new CustomEvent('switch-msg', { detail: '📢 Avisando o prédio inteiro...' }));
 
     setTimeout(() => {
+      if (!_container) return;
       doors.forEach(d => d.classList.remove('broadcasting'));
       learned.add(target);
       revealedThisRound = true;

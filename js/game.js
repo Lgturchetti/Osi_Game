@@ -1,7 +1,7 @@
 let G={};
 const DEV_PASS='#PROTEC2026';
 let DEV=false;
-function resetState(){G={layer:0,phase:'intro',lives:3,score:0,attempts:0,passed:false,mistakeLayers:[],results:[],choiceSelected:null,wireSelected:null,wireSelectedSide:null,wireMatched:{},sortOrder:[],rj45HintUsedThisLife:false,rj45CrimpTried:false};}
+function resetState(){G={layer:0,phase:'intro',lives:3,score:0,attempts:0,passed:false,mistakeLayers:[],results:[],choiceSelected:null,wireSelected:null,wireSelectedSide:null,wireMatched:{},sortOrder:[],rj45HintUsedThisLife:false,rj45CrimpTried:false,failing:false};}
 const $=id=>document.getElementById(id);
 function showScreen(n){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$('screen-'+n).classList.add('active');}
 function delay(ms){return new Promise(r=>setTimeout(r,ms));}
@@ -13,6 +13,28 @@ function mistake(){
   if(DEV)return;
   G.lives=Math.max(0,G.lives-1);
   if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);
+}
+
+// O jogador ainda pode errar/acertar nesta camada? Depois de concluir (ou de
+// perder as 3 vidas) qualquer evento atrasado do desafio é ignorado — senão
+// dava pra perder vida DEPOIS de já ter passado.
+function canAct(){return !G.passed&&!G.failing;}
+
+// Escuta um evento do desafio só enquanto aquele widget ainda está na tela.
+// Animações com setTimeout continuam disparando depois que o jogador volta
+// de camada; sem isso elas mexiam no estado da camada nova.
+function onCh(container,name,fn){
+  container.addEventListener(name,e=>{if(container.isConnected)fn(e);});
+}
+
+// Cancela tudo que está pendente da camada atual (timers de animação dos
+// desafios e o avanço automático depois de perder as vidas).
+let _failT=null;
+function stopPending(){
+  clearTimeout(_failT);_failT=null;G.failing=false;G.simRun=(G.simRun||0)+1;
+  const bb=$('btn-back');if(bb)bb.disabled=false;
+  [TransportChallenge,MessageChallenge,WebChallenge,SwitchChallenge,RouteChallenge].forEach(c=>{try{c.reset();}catch(e){}});
+  document.querySelectorAll('.modal-ov,.rj45-peek').forEach(m=>m.remove());
 }
 
 function buildSidebar(){
@@ -64,15 +86,16 @@ function tuxToast(t){
   _tuxToastT=setTimeout(()=>tb.classList.remove('show'),4500);
 }
 
-function startGame(){resetState();buildSidebar();showScreen('game');updateSidebar();setTux('idle');setBubble('Vamos começar!');showIntro();renderDevBar();}
+function startGame(){if(G&&G.layer!==undefined)stopPending();resetState();buildSidebar();showScreen('game');updateSidebar();setTux('idle');setBubble('Vamos começar!');showIntro();renderDevBar();}
 
 // ─── Navegação: voltar de camada (jogador) ───────────────
 function goBack(){
-  if(G.layer<=0)return;
+  if(G.layer<=0||G.failing)return;
   if(DEV){devGoToLayer(G.layer-1);return;}
   confirmDialog(
     `Voltar para a <b>Camada ${G.layer}</b>?<br><br>Você vai ter que passar por ela de novo — o progresso desta camada e das próximas se perde.`,
     ()=>{
+      stopPending();
       G.layer--;
       G.results=G.results.filter(r=>r.idx<G.layer);
       G.mistakeLayers=G.mistakeLayers.filter(i=>i<G.layer);
@@ -141,13 +164,16 @@ function devAct(act,k){
   if(act==='prev')return devGoToLayer((G.layer||0)-1);
   if(act==='next')return devGoToLayer((G.layer||0)+1);
   if(act==='go')return devGoToLayer(+k);
-  if(act==='sim'){showScreen('game');return runSimulation();}
-  if(act==='result')return showResult();
   if(act==='restart')return startGame();
   if(act==='off')return disableDev();
+  // simular/resultado antes de começar o jogo: cria um estado vazio
+  if(!G||!Array.isArray(G.results)){resetState();buildSidebar();}
+  if(act==='sim'){stopPending();return runSimulation();}
+  if(act==='result')return showResult();
 }
 function devGoToLayer(k){
   if(!G||typeof G.layer!=='number')resetState();
+  stopPending();
   k=Math.max(0,Math.min(LAYERS.length-1,k));
   G.layer=k;G.lives=3;G.passed=false;G.attempts=0;
   G.results=G.results.filter(r=>r.idx<k);
@@ -192,7 +218,7 @@ function showIntro(){
 }
 
 function showChallenge(){
-  G.phase='challenge';const l=LAYERS[G.layer],ch=l.challenge;
+  G.phase='challenge';G.lastWrongKey=null;const l=LAYERS[G.layer],ch=l.challenge;
   setTux('idle');setBubble('Você consegue!');
   const isRj45=ch.type==='rj45';
   const noSubmitBtn=isRj45||ch.type==='switch'||ch.type==='route'||ch.type==='transport'||ch.type==='app';
@@ -279,6 +305,27 @@ function selectStandard(std) {
   if (btn) btn.disabled = false;
 }
 
+// Mostra a ordem dos fios por 2 segundos num pop-up e depois esconde —
+// o jogador precisa memorizar em vez de copiar da instrução.
+const PEEK_MS=2000;
+function showWireOrderPeek(std){
+  document.querySelectorAll('.rj45-peek').forEach(p=>p.remove());
+  const wires=RJ45Challenge.STANDARDS[std];if(!wires)return;
+  const ov=document.createElement('div');
+  ov.className='rj45-peek';
+  ov.innerHTML=`<div class="rj45-peek-box">
+    <div class="rj45-peek-title">Ordem <strong>${std}</strong> — memorize!</div>
+    <ol class="rj45-peek-list">${wires.map((w,i)=>`
+      <li><span class="rj45-peek-num">${i+1}</span>
+        <span class="rj45-peek-sw" style="background:${w.stripe?`repeating-linear-gradient(90deg,${w.color} 0 5px,#f5f5f5 5px 10px)`:w.color}"></span>
+        <span class="rj45-peek-lbl">${w.label}</span></li>`).join('')}
+    </ol>
+    <div class="rj45-peek-bar"><i style="animation-duration:${PEEK_MS}ms"></i></div>
+  </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>{if(!ov.isConnected)return;ov.classList.add('out');setTimeout(()=>{ov.remove();setBubble('Agora monte o cabo de memória!');},300);},PEEK_MS);
+}
+
 function confirmStandard() {
   if (!_pendingStandard) return;
   RJ45Challenge.setStandard(_pendingStandard);
@@ -286,22 +333,21 @@ function confirmStandard() {
   // Update instruction text dynamically
   const instrEl = document.querySelector('.ch-instruction');
   if (instrEl) {
-    const hints = {
-      'T568B': 'Branco-Laranja · Laranja · Branco-Verde · Azul · Branco-Azul · Verde · Branco-Marrom · Marrom',
-      'T568A': 'Branco-Verde · Verde · Branco-Laranja · Azul · Branco-Azul · Laranja · Branco-Marrom · Marrom',
-    };
-    instrEl.innerHTML = `Toque nos fios (ou arraste) para posicioná-los nos slots do conector RJ45 na ordem da norma <strong>${_pendingStandard}</strong> e depois toque no <strong>Crimper</strong> para fixar. A dica só está disponível após a primeira tentativa.<br><span class="ch-instruction-order"><strong>Ordem ${_pendingStandard}:</strong> ${hints[_pendingStandard]}</span>`;
-    // Update the tux hint too
-    setBubble(hints[_pendingStandard]);
+    instrEl.innerHTML = `Monte o cabo na ordem da norma <strong>${_pendingStandard}</strong>: toque nos fios (ou arraste) para os slots do conector e depois toque no <strong>Crimper</strong> para fixar. A ordem aparece só por 2 segundos — memorize! A dica só fica disponível após a primeira tentativa.`;
+    setBubble('Memorize a ordem! Ela some em 2 segundos.');
   }
+  showWireOrderPeek(_pendingStandard);
 
   const widget = document.getElementById('ch-widget');
   if (!widget) return;
 
   RJ45Challenge.reset();
   RJ45Challenge.render(widget);
+  // estado da dica é por tentativa desta camada (não herda de uma visita anterior)
+  G.rj45CrimpTried=false;G.rj45HintUsedThisLife=false;
+  _pendingStandard=null;
 
-  widget.addEventListener('rj45-success',()=>{
+  onCh(widget,'rj45-success',()=>{
     G.passed=true;
     showFeedback(true,'Cabo crimpado com sucesso! Conexão estabelecida! 🎉');
     setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');
@@ -316,7 +362,8 @@ function confirmStandard() {
     }
   });
 
-  widget.addEventListener('rj45-fail',()=>{
+  onCh(widget,'rj45-fail',()=>{
+    if(!canAct())return;
     mistake();
     showFeedback(false,'Alguns fios estão na posição errada. Os slots mostram onde errou — tente novamente!');
     setTux('sad');Tux.shake('tux-sidebar');
@@ -325,10 +372,10 @@ function confirmStandard() {
     G.rj45CrimpTried=true;
     G.rj45HintUsedThisLife=false;
     const hintBtn=$('btn-hint');if(hintBtn){hintBtn.disabled=false;}
-    if(G.lives<=0)setTimeout(advanceLayer,1600);
+    if(G.lives<=0)outOfLives();
   });
 
-  widget.addEventListener('rj45-msg',e=>{
+  onCh(widget,'rj45-msg',e=>{
     showFeedback(false,e.detail);
   });
 }
@@ -339,11 +386,11 @@ function buildSwitch(container){
 
   // listeners are attached BEFORE render() so the very first
   // broadcast message (fired synchronously on round 1) isn't missed
-  container.addEventListener('switch-msg', e=>{
+  onCh(container,'switch-msg', e=>{
     setBubble(e.detail);
   });
 
-  container.addEventListener('switch-correct', e=>{
+  onCh(container,'switch-correct', e=>{
     if(!e.detail.final){
       const msg=e.detail.viaBroadcast
         ? 'Broadcast certo! O porteiro aprendeu esse endereço e já anotou no caderno 📓✅'
@@ -353,7 +400,8 @@ function buildSwitch(container){
     }
   });
 
-  container.addEventListener('switch-wrong', e=>{
+  onCh(container,'switch-wrong', e=>{
+    if(!canAct())return;
     mistake();
     let msg='Tente novamente!';
     if(e.detail.reason==='needs-broadcast')
@@ -366,10 +414,10 @@ function buildSwitch(container){
     setTux('sad');Tux.shake('tux-sidebar');
     setBubble('Pense: o porteiro já conhece esse endereço ou não?');
     updateSidebar();
-    if(G.lives<=0)setTimeout(advanceLayer,1600);
+    if(G.lives<=0)outOfLives();
   });
 
-  container.addEventListener('switch-success', ()=>{
+  onCh(container,'switch-success', ()=>{
     G.passed=true;
     showFeedback(true,'Todas as encomendas entregues! O porteiro aprendeu a rede toda — caderno completo! 🎉');
     setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');
@@ -391,27 +439,28 @@ function buildSwitch(container){
 function buildRoute(container){
   RouteChallenge.reset();
 
-  container.addEventListener('route-ip-ok', ()=>{
+  onCh(container,'route-ip-ok', ()=>{
     showFeedback(true,'Endereço configurado! Seu computador já pode enviar pacotes pela rede.');
     setTux('happy');Tux.pop('tux-sidebar');
     setBubble('Agora clique em "Enviar o pacote" para começar a jornada!');
   });
 
-  container.addEventListener('route-correct', ()=>{
+  onCh(container,'route-correct', ()=>{
     showFeedback(true,'Rota correta! O pacote avança para o próximo roteador.');
     setTux('happy');Tux.pop('tux-sidebar');
   });
 
-  container.addEventListener('route-wrong', e=>{
+  onCh(container,'route-wrong', e=>{
+    if(!canAct())return;
     mistake();
     showFeedback(false,e.detail?.message||'Tente novamente!');
     setTux('sad');Tux.shake('tux-sidebar');
     setBubble(e.detail?.phase==='ip'?'Revise os campos com atenção.':'Pense: qual rede está mais perto do destino 10.40?');
     updateSidebar();
-    if(G.lives<=0)setTimeout(advanceLayer,1600);
+    if(G.lives<=0)outOfLives();
   });
 
-  container.addEventListener('route-success', ()=>{
+  onCh(container,'route-success', ()=>{
     G.passed=true;
     showFeedback(true,'Pacote entregue no HUSM! Endereçamento e roteamento completos! 🎉');
     setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');
@@ -433,9 +482,9 @@ function buildRoute(container){
 function buildTransport(container){
   TransportChallenge.reset();
 
-  container.addEventListener('transport-msg', e=>{ setBubble(e.detail); });
+  onCh(container,'transport-msg', e=>{ setBubble(e.detail); });
 
-  container.addEventListener('transport-correct', e=>{
+  onCh(container,'transport-correct', e=>{
     if(!e.detail.final){
       showFeedback(true,e.detail.message);
       setTux('happy');Tux.pop('tux-sidebar');
@@ -445,16 +494,17 @@ function buildTransport(container){
     }
   });
 
-  container.addEventListener('transport-wrong', e=>{
+  onCh(container,'transport-wrong', e=>{
+    if(!canAct())return;
     mistake();
     showFeedback(false,e.detail?.message||'Tente novamente!');
     setTux('sad');Tux.shake('tux-sidebar');
     setBubble(e.detail?.hint||'Pense: esses dados precisam de integridade ou de tempo real?');
     updateSidebar();
-    if(G.lives<=0)setTimeout(advanceLayer,1600);
+    if(G.lives<=0)outOfLives();
   });
 
-  container.addEventListener('transport-success', ()=>{
+  onCh(container,'transport-success', ()=>{
     G.passed=true;
     showFeedback(true,'Todas as transmissões entregues do jeito certo! Você entendeu o trade-off do Transporte! 🎉');
     setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');
@@ -479,6 +529,7 @@ let APP_PHASE='picker';   // 'picker' | 'msg' | 'web'  (pra dica)
 function buildApp(container){
   APP_DONE={msg:false,web:false};
   APP_PHASE='picker';
+  G.appLives=3;   // menor nº de vidas restantes entre as duas partes (pontuação)
   renderAppPicker(container);
 }
 
@@ -523,7 +574,7 @@ function renderAppPicker(container){
 
 function startAppPhase(container,p){
   G.lives=3;G.attempts=0;updateSidebar();
-  const done=()=>{ APP_DONE[p]=true; setTux('happy');Tux.pop('tux-sidebar'); renderAppPicker(container); };
+  const done=()=>{ APP_DONE[p]=true; G.appLives=Math.min(G.appLives??3,G.lives); setTux('happy');Tux.pop('tux-sidebar'); renderAppPicker(container); };
   if(p==='msg'){ APP_PHASE='msg'; buildMessage(container,done); }
   else         { APP_PHASE='web'; buildWeb(container,done); }
 }
@@ -531,23 +582,24 @@ function startAppPhase(container,p){
 // Fase 1 — a mensagem no WhatsApp
 function buildMessage(container,onDone){
   MessageChallenge.reset();
-  container.addEventListener('message-msg', e=>{ setBubble(e.detail); });
-  container.addEventListener('message-correct', e=>{
+  onCh(container,'message-msg', e=>{ setBubble(e.detail); });
+  onCh(container,'message-correct', e=>{
     if(!e.detail.final){
       showFeedback(true,'Mensagem entregue e lida! ✓✓');
       setTux('happy');Tux.pop('tux-sidebar');
       setBubble('Boa! Próxima mensagem.');
     }
   });
-  container.addEventListener('message-wrong', e=>{
+  onCh(container,'message-wrong', e=>{
+    if(!canAct())return;
     mistake();
     showFeedback(false,e.detail?.message||'Essa não é a melhor escolha.');
     setTux('sad');Tux.shake('tux-sidebar');
     setBubble(e.detail?.hint||'Pensa no caminho: seu celular → servidor → a Bia.');
     updateSidebar();
-    if(G.lives<=0){ MessageChallenge.reset(); setTimeout(advanceLayer,1600); }
+    if(G.lives<=0){ MessageChallenge.reset(); outOfLives(); }
   });
-  container.addEventListener('message-success', ()=>{
+  onCh(container,'message-success', ()=>{
     showFeedback(true,'Parte 1 completa! Você entendeu como o WhatsApp entrega uma mensagem. ✓✓');
     setTux('superHappy');Tux.bounce('tux-sidebar');
     if(onDone) onDone();
@@ -558,23 +610,24 @@ function buildMessage(container,onDone){
 // Fase 2 — abrindo um site no navegador
 function buildWeb(container,onDone){
   WebChallenge.reset();
-  container.addEventListener('web-msg', e=>{ setBubble(e.detail); });
-  container.addEventListener('web-correct', e=>{
+  onCh(container,'web-msg', e=>{ setBubble(e.detail); });
+  onCh(container,'web-correct', e=>{
     if(!e.detail.final){
       showFeedback(true,'Página carregada! ✓');
       setTux('happy');Tux.pop('tux-sidebar');
       setBubble('Boa! Próximo site.');
     }
   });
-  container.addEventListener('web-wrong', e=>{
+  onCh(container,'web-wrong', e=>{
+    if(!canAct())return;
     mistake();
     showFeedback(false,e.detail?.message||'Essa não é a melhor escolha.');
     setTux('sad');Tux.shake('tux-sidebar');
     setBubble('Pensa: você quer VER a página (GET) ou ENVIAR dados (POST)? E precisa de cadeado?');
     updateSidebar();
-    if(G.lives<=0){ WebChallenge.reset(); setTimeout(advanceLayer,1600); }
+    if(G.lives<=0){ WebChallenge.reset(); outOfLives(); }
   });
-  container.addEventListener('web-success', ()=>{
+  onCh(container,'web-success', ()=>{
     showFeedback(true,'Parte 2 completa! Você acompanhou o navegador carregar uma página do zero. 🎉');
     setTux('superHappy');Tux.bounce('tux-sidebar');
     if(onDone) onDone();
@@ -654,11 +707,12 @@ function buildIP(ch,w){w.innerHTML=`<div class="ip-fields">${ch.fields.map(f=>`<
 function validateIP(ch){let ok=true;ch.fields.forEach(f=>{const el=$('ipf-'+f.id);if(!el)return;const v=f.type==='select'?el.value===f.correct:f.validate(el.value);if(f.type!=='select'){el.classList.toggle('ok',v);el.classList.toggle('err',!v);}if(!v)ok=false;});return{passed:ok};}
 
 let _sortDrag=null;
-function buildSeq(ch,w){const s=[...ch.items].sort(()=>Math.random()-.5);G.sortOrder=s.map(i=>i.id);w.innerHTML=`<div class="sort-list" id="sort-list">${s.map(it=>`<div class="sitem" id="si-${it.id}" draggable="true" ondragstart="_sDragStart(event,'${it.id}')" ondragover="_sDragOver(event,'${it.id}')" ondrop="_sDrop(event,'${it.id}')"><span class="shandle">⠿</span><span class="sitem-txt">${it.text}</span><span class="sitem-move"><button type="button" class="seq-arrow" onclick="_seqMove('${it.id}',-1)" aria-label="mover para cima">▲</button><button type="button" class="seq-arrow" onclick="_seqMove('${it.id}',1)" aria-label="mover para baixo">▼</button></span></div>`).join('')}</div>`;}
+function buildSeq(ch,w){let s;do{s=[...ch.items].sort(()=>Math.random()-.5);}while(s.every((it,i)=>it.order===i+1));G.sortOrder=s.map(i=>i.id);w.innerHTML=`<div class="sort-list" id="sort-list">${s.map(it=>`<div class="sitem" id="si-${it.id}" draggable="true" ondragstart="_sDragStart(event,'${it.id}')" ondragover="_sDragOver(event,'${it.id}')" ondrop="_sDrop(event,'${it.id}')" ondragleave="this.classList.remove('drag-over')" ondragend="_sDragEnd()"><span class="shandle">⠿</span><span class="sitem-txt">${it.text}</span><span class="sitem-move"><button type="button" class="seq-arrow" onclick="_seqMove('${it.id}',-1)" aria-label="mover para cima">▲</button><button type="button" class="seq-arrow" onclick="_seqMove('${it.id}',1)" aria-label="mover para baixo">▼</button></span></div>`).join('')}</div>`;}
 function _seqMove(id,dir){const list=$('sort-list');if(!list)return;const el=$('si-'+id);if(!el)return;if(dir<0&&el.previousElementSibling)list.insertBefore(el,el.previousElementSibling);else if(dir>0&&el.nextElementSibling)list.insertBefore(el.nextElementSibling,el);G.sortOrder=[...list.querySelectorAll('.sitem')].map(x=>x.id.replace('si-',''));}
-function _sDragStart(e,id){_sortDrag=id;}
+function _sDragStart(e,id){_sortDrag=id;try{e.dataTransfer.setData('text/plain',id);}catch(_){}}
+function _sDragEnd(){_sortDrag=null;document.querySelectorAll('.sitem.drag-over').forEach(x=>x.classList.remove('drag-over'));}
 function _sDragOver(e,id){e.preventDefault();$('si-'+id)?.classList.add('drag-over');}
-function _sDrop(e,tid){e.preventDefault();$('si-'+tid)?.classList.remove('drag-over');if(!_sortDrag||_sortDrag===tid)return;const list=$('sort-list');list.insertBefore($('si-'+_sortDrag),$('si-'+tid));G.sortOrder=[...$('sort-list').querySelectorAll('.sitem')].map(el=>el.id.replace('si-',''));_sortDrag=null;}
+function _sDrop(e,tid){e.preventDefault();document.querySelectorAll('.sitem.drag-over').forEach(x=>x.classList.remove('drag-over'));if(!_sortDrag||_sortDrag===tid)return;const list=$('sort-list');list.insertBefore($('si-'+_sortDrag),$('si-'+tid));G.sortOrder=[...$('sort-list').querySelectorAll('.sitem')].map(el=>el.id.replace('si-',''));_sortDrag=null;}
 function validateSeq(ch){const c=ch.items.slice().sort((a,b)=>a.order-b.order).map(i=>i.id);return{passed:G.sortOrder.join(',')===c.join(',')};}
 
 function buildToggle(ch,w){w.innerHTML=`<div class="toggle-list">${ch.items.map(it=>`<div class="titem"><div class="titem-info"><div class="titem-label">${it.label}</div><div class="titem-note">${it.note}</div></div><label class="tswitch"><input type="checkbox" id="tog-${it.id}"><span class="tslider"></span></label></div>`).join('')}</div>`;}
@@ -677,6 +731,14 @@ function submitChallenge(){
   else if(ch.type==='sequence')res=validateSeq(ch);
   else if(ch.type==='toggle')res=validateToggle(ch);
   else if(ch.type==='wire')res=validateWire(ch);
+  if(!canAct())return;
+  // Mesma resposta errada de novo (ex.: clique duplo no Confirmar) não custa
+  // outra vida — o jogador precisa mudar algo antes.
+  const key=answerKey(ch);
+  if(!res.passed&&key!==null&&key===G.lastWrongKey){
+    showFeedback(false,'Você já tentou exatamente essa resposta — mude algo antes de confirmar de novo.');
+    return;
+  }
   G.attempts++;
   if(res.passed){
     G.passed=true;
@@ -684,11 +746,21 @@ function submitChallenge(){
     setTux('superHappy');Tux.bounce('tux-sidebar');Tux.pop('tux-sidebar');setBubble('INCRÍVEL! 🎉');
     const btn=$('btn-submit');if(btn){btn.textContent='Próxima camada →';btn.onclick=advanceLayer;btn.className='gbtn gbtn-green';}
   }else{
-    if(!DEV){G.lives=Math.max(0,G.lives-1);if(!G.mistakeLayers.includes(G.layer))G.mistakeLayers.push(G.layer);}
+    G.lastWrongKey=key;
+    G.attempts--;mistake();   // mistake() já conta a tentativa
     const msg=res.explain||wrongMsg(ch.type,res);showFeedback(false,msg);
     setTux('sad');Tux.shake('tux-sidebar');setBubble('Quase! Tente de novo.');updateSidebar();
-    if(G.lives<=0)setTimeout(advanceLayer,1600);
+    if(G.lives<=0)outOfLives();
   }
+}
+
+// "Foto" da resposta atual, pra reconhecer quando o jogador reenvia a mesma.
+function answerKey(ch){
+  if(ch.type==='choice')return String(G.choiceSelected);
+  if(ch.type==='sequence')return G.sortOrder.join(',');
+  if(ch.type==='toggle')return ch.items.map(it=>$('tog-'+it.id)?.checked?1:0).join('');
+  if(ch.type==='ip')return ch.fields.map(f=>$('ipf-'+f.id)?.value.trim()).join('|');
+  return null;
 }
 
 function wrongMsg(t,r){
@@ -702,8 +774,31 @@ function wrongMsg(t,r){
 
 function showFeedback(ok,msg){const fb=$('feedback');if(!fb)return;fb.className='feedback show '+(ok?'ok':'fail');$('fb-icon').textContent=ok?'✅':'❌';$('fb-txt').textContent=msg;fb.scrollIntoView({behavior:'smooth',block:'nearest'});}
 
+// Acabaram as vidas: trava o desafio e avança uma única vez. Sem a trava,
+// cliques durante a espera agendavam vários advanceLayer e pulavam camadas.
+function outOfLives(){
+  if(G.failing)return;
+  G.failing=true;
+  const w=$('ch-widget');if(w)w.style.pointerEvents='none';
+  document.querySelectorAll('.ch-actions button').forEach(b=>b.disabled=true);
+  const bb=$('btn-back');if(bb)bb.disabled=true;
+  _failT=setTimeout(()=>{_failT=null;advanceLayer();},1600);
+}
+
+// Camadas que o jogador NÃO concluiu (perdeu as 3 vidas ou não chegou nelas).
+// Errar algumas vezes e depois acertar conta como concluída.
+function failedLayerIds(){
+  return LAYERS.filter((l,i)=>!G.results.find(r=>r.idx===i)?.passed).map(l=>l.id);
+}
+
 function advanceLayer(){
-  G.results.push({idx:G.layer,passed:G.passed,attempts:G.attempts});G.lives=3;
+  G.failing=false;
+  const bb=$('btn-back');if(bb)bb.disabled=false;
+  // camada 7 tem duas partes com 3 vidas cada: vale a pior das duas
+  let lives=G.lives;
+  if(LAYERS[G.layer].challenge.type==='app'&&typeof G.appLives==='number')lives=Math.min(lives,G.appLives);
+  G.results=G.results.filter(r=>r.idx!==G.layer);
+  G.results.push({idx:G.layer,passed:G.passed,attempts:G.attempts,lives});G.lives=3;G.lastWrongKey=null;
   if(G.layer>=LAYERS.length-1)runSimulation();else{G.layer++;showIntro();}
 }
 
@@ -712,7 +807,8 @@ async function runSimulation(){
   $('sim-stack').innerHTML=LAYERS.map(l=>`<div class="slayer ${l.cls}" id="sl-${l.id}"><div class="sln">L${l.id}</div><div class="slname">${l.emoji} ${l.name}</div><div class="slstatus" id="ss-${l.id}">aguardando...</div><div class="slicon" id="si-${l.id}">⏳</div></div>`).join('');
   $('sim-log').innerHTML='<span class="log-info">> Iniciando simulação...\n</span>';
 
-  const realErrorLayerIds = [...new Set(G.mistakeLayers.map(i => LAYERS[i].id))];
+  const realErrorLayerIds = failedLayerIds();
+  const run=G.simRun=(G.simRun||0)+1;   // se o jogo for reiniciado/navegado no meio, esta simulação para
   const log=$('sim-log');
   const addLog=(m,c)=>{log.innerHTML+=`<span class="${c||''}">${m}\n</span>`;log.scrollTop=9999;};
   addLog('> Enviando pacote de dados...','log-info');
@@ -720,9 +816,11 @@ async function runSimulation(){
   // Test every layer one by one — never stop early
   for(const l of LAYERS){
     await delay(600);
+    if(G.simRun!==run)return;
     const row=$('sl-'+l.id),ss=$('ss-'+l.id),si=$('si-'+l.id);
     row.classList.add('processing');ss.textContent='processando...';si.textContent='⚙️';
     await delay(750);
+    if(G.simRun!==run)return;
     row.classList.remove('processing');
     if(realErrorLayerIds.includes(l.id)){
       row.classList.add('err');ss.textContent=l.sim.err;si.textContent='❌';
@@ -742,39 +840,47 @@ async function runSimulation(){
     addLog('> ✨ Todos os pacotes entregues!','log-ok');
     Tux.render('tux-sim','celebrate',110);Tux.bounce('tux-sim');setBubble('PERFEITO! 🎉','tux-sim-bubble');
   }
-  setTimeout(()=>showResult(),2200);
+  setTimeout(()=>{if(G.simRun===run)showResult();},2200);
 }
 
 function showResult(){
   showScreen('result');
-  const playerErrIds = [...new Set(G.mistakeLayers.map(i => LAYERS[i].id))];
+  const playerErrIds = failedLayerIds();
   const passedCount  = LAYERS.length - playerErrIds.length;
-  const perfect      = playerErrIds.length === 0;
+  const completed    = playerErrIds.length === 0;
 
-  // Score: each correctly completed layer = floor(100 / 7) pts, perfect bonus brings to 100
-  const PTS_PER_LAYER = Math.floor(100 / LAYERS.length); // 14
-  const bonus         = perfect ? (100 - PTS_PER_LAYER * LAYERS.length) : 0; // 2 pts bonus if perfect
-  G.score             = passedCount * PTS_PER_LAYER + bonus;
+  // Pontuação: cada camada vale 1/7 de 100, multiplicado pelas vidas que
+  // sobraram ao concluí-la. Perder vidas ainda conclui a camada, mas vale menos.
+  const LIFE_FACTOR = {3:1, 2:0.7, 1:0.4, 0:0};
+  const factors = LAYERS.map((l,i)=>{
+    const r=G.results.find(x=>x.idx===i);
+    return r&&r.passed ? (LIFE_FACTOR[r.lives] ?? 0) : 0;
+  });
+  const perfect = completed && factors.every(f=>f===1);
+  G.score = Math.round(factors.reduce((a,b)=>a+b,0) / LAYERS.length * 100);
 
-  Tux.render('tux-result', perfect ? 'celebrate' : 'worried', 130);
-  if(perfect) Tux.bounce('tux-result');
+  Tux.render('tux-result', completed ? 'celebrate' : 'worried', 130);
+  if(completed) Tux.bounce('tux-result');
 
-  $('result-title').textContent = perfect ? '🏆 Rede Perfeita!' : '⚠️ Rede com Problemas';
+  $('result-title').textContent = perfect ? '🏆 Rede Perfeita!' : completed ? '✅ Rede Funcionando!' : '⚠️ Rede com Problemas';
   $('result-pts').textContent   = G.score + ' pts';
   $('result-msg').textContent   = perfect
-    ? 'Você configurou todas as 7 camadas OSI sem nenhum erro! Tux está muito orgulhoso!'
+    ? 'Você concluiu todas as 7 camadas OSI sem perder nenhuma vida! Tux está muito orgulhoso!'
+    : completed
+    ? 'Você concluiu todas as 7 camadas OSI! Perdeu algumas vidas no caminho — tente sem errar para fazer 100 pts.'
     : `Você acertou ${passedCount} de ${LAYERS.length} camadas. Reveja as camadas abaixo e tente novamente!`;
 
-  const errContainer = $('result-errors');
-  if(playerErrIds.length === 0){
-    errContainer.style.display = 'none';
-  } else {
-    errContainer.style.display = 'block';
-    $('result-err-list').innerHTML = playerErrIds.map(lid => {
-      const l = LAYERS.find(x => x.id === lid);
-      return l ? `<div class="err-item"><div class="err-dot"></div><span>${l.emoji} ${l.name}</span></div>` : '';
-    }).join('');
-  }
+  // Desempenho por camada: vidas que sobraram e quanto da camada valeu.
+  $('result-errors').style.display = 'block';
+  $('result-err-list').innerHTML = LAYERS.map((l,i)=>{
+    const r = G.results.find(x=>x.idx===i);
+    const failed = !(r&&r.passed);
+    const lives = failed ? 0 : (r.lives ?? 0);
+    const hearts = Array.from({length:3},(_,k)=>k<lives?'🐧':'💀').join('');
+    const tag = failed ? 'revisar' : Math.round(factors[i]*100)+'%';
+    const cls = failed ? 'fail' : factors[i]===1 ? 'full' : 'partial';
+    return `<div class="err-item ${cls}"><div class="err-dot"></div><span class="ri-name">L${l.id} ${l.emoji} ${l.name}</span><span class="ri-lives">${hearts}</span><span class="ri-tag">${tag}</span></div>`;
+  }).join('');
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
