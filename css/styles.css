@@ -160,6 +160,13 @@ body{font-family:'Manrope',sans-serif;background:var(--v2-bg);color:var(--v2-tex
 .err-item.full .ri-tag{color:var(--v2-success);}
 .err-item.partial .ri-tag{color:var(--v2-accent);}
 .err-item.fail .ri-tag{color:var(--v2-danger);}
+.questionnaire-link{display:flex;align-items:center;gap:.85rem;margin:0 0 1.5rem;text-align:left;position:relative;z-index:1;max-width:480px;}
+.questionnaire-qr-link{display:block;width:180px;height:180px;padding:5px;background:#fff;flex:none;}
+.questionnaire-qr-placeholder{display:block;width:100%;height:100%;}
+.questionnaire-copy{display:grid;gap:.25rem;max-width:250px;}
+.questionnaire-copy strong{font-family:'Space Grotesk',sans-serif;color:var(--v2-text);font-size:.95rem;}
+.questionnaire-copy span{color:var(--v2-text-dim);font-size:.78rem;line-height:1.45;}
+@media (max-width:480px){.questionnaire-link{flex-direction:column;text-align:center;}.questionnaire-qr-link{width:160px;height:160px;}.questionnaire-copy{justify-items:center;}}
 .tux-wrap{display:flex;justify-content:center;align-items:flex-end;}
 .row{display:flex;align-items:center;gap:.75rem;}
 .ml-auto{margin-left:auto;}.mt-auto{margin-top:auto;}
